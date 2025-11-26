@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="60" cy="60" r="56" fill="url(#grad1)"/>
+  
+  <!-- Anchor shape -->
+  <g fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Top ring -->
+    <circle cx="60" cy="28" r="8"/>
+    <!-- Vertical line -->
+    <line x1="60" y1="36" x2="60" y2="85"/>
+    <!-- Bottom curve -->
+    <path d="M35 70 Q35 95 60 95 Q85 95 85 70"/>
+    <!-- Arrow points -->
+    <line x1="60" y1="95" x2="50" y2="85"/>
+    <line x1="60" y1="95" x2="70" y2="85"/>
+    <!-- Horizontal bar -->
+    <line x1="40" y1="50" x2="80" y2="50"/>
+  </g>
+</svg>

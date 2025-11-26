@@ -1,0 +1,49 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build outputs
+.next
+out
+build
+
+# Git
+.git
+.gitignore
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+
+# Documentation (not needed in container)
+*.md
+docs/
+CONTRIBUTING.md
+SECURITY.md
+LICENSE
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage
+.nyc_output
+
+# Logs
+*.log
+logs
+
+# Local data
+data/
+postgres-data/
+minio-data/

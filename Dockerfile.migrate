@@ -1,0 +1,22 @@
+# Lightweight migration container
+FROM node:20-slim
+
+WORKDIR /app
+
+# Install OpenSSL for Prisma
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+# Copy package files and prisma
+COPY package*.json ./
+COPY prisma ./prisma/
+COPY src/generated ./src/generated/
+COPY tsconfig.json ./
+
+# Install dependencies needed for migrations and seeding
+RUN npm install prisma @prisma/client bcrypt typescript ts-node @types/node @types/bcrypt
+
+# Generate Prisma client
+RUN npx prisma generate
+
+# Run migrations and seed
+CMD sh -c "npx prisma migrate deploy && npx ts-node --compiler-options '{\"module\":\"CommonJS\"}' prisma/seed.ts"

@@ -1,0 +1,132 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("admin") // admin, viewer
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  apiKeys ApiKey[]
+  apps    App[]    @relation("AppCreatedBy")
+}
+
+// App model for multi-app support
+model App {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique // URL-friendly identifier (e.g., "my-electron-app")
+  description String?  @db.Text
+  icon        String?  // URL to app icon
+  createdById String
+  createdBy   User     @relation("AppCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  releases      Release[]
+  apiKeys       ApiKey[]
+  downloadStats DownloadStat[]
+
+  @@index([slug])
+}
+
+// Release model for version management
+model Release {
+  id                String   @id @default(cuid())
+  appId             String
+  app               App      @relation(fields: [appId], references: [id], onDelete: Cascade)
+  version           String
+  name              String?
+  notes             String?  @db.Text
+  channel           String   @default("latest") // latest, beta, alpha
+  platform          String   // windows, mac, linux
+  stagingPercentage Int      @default(100) // 0-100 for staged rollouts
+  isPublic          Boolean  @default(true)
+  published         Boolean  @default(false)
+  releaseDate       DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  files           ReleaseFile[]
+  downloadStats   DownloadStat[]
+  rolloutTracking RolloutTracking[]
+
+  @@unique([appId, version, channel, platform])
+  @@index([appId, channel, platform, published])
+}
+
+// ReleaseFile model for binary files
+model ReleaseFile {
+  id        String   @id @default(cuid())
+  releaseId String
+  release   Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  filename  String
+  s3Key     String
+  sha512    String
+  size      Int
+  arch      String?  // x64, arm64, universal
+  createdAt DateTime @default(now())
+
+  @@index([releaseId])
+}
+
+// ApiKey model for private app access
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  keyHash     String
+  appId       String
+  app         App       @relation(fields: [appId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime?
+  createdById String
+  createdBy   User      @relation(fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+
+  @@index([keyHash])
+  @@index([appId])
+}
+
+// DownloadStat model for tracking downloads
+model DownloadStat {
+  id        String   @id @default(cuid())
+  appId     String?
+  app       App?     @relation(fields: [appId], references: [id], onDelete: SetNull)
+  releaseId String
+  release   Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  type      String   // check, download
+  platform  String?
+  arch      String?
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([appId])
+  @@index([releaseId])
+  @@index([createdAt])
+}
+
+// RolloutTracking model for staged rollout analytics
+model RolloutTracking {
+  id        String   @id @default(cuid())
+  releaseId String
+  release   Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  clientId  String   // UUID from electron-updater client
+  eligible  Boolean  // Whether client was eligible for update
+  checkedAt DateTime @default(now())
+
+  @@unique([releaseId, clientId])
+  @@index([releaseId])
+}

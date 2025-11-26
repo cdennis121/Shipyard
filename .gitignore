@@ -1,6 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+# Dependencies
 /node_modules
 /.pnp
 .pnp.*
@@ -10,32 +10,75 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
+# Testing
 /coverage
 
-# next.js
+# Next.js
 /.next/
 /out/
 
-# production
+# Production
 /build
 
-# misc
+# Misc
 .DS_Store
 *.pem
 
-# debug
+# Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# Environment files - NEVER commit real credentials
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
 
-# vercel
+# Keep example file
+!.env.example
+
+# Vercel
 .vercel
 
-# typescript
+# TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Prisma generated client
+/src/generated/prisma
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Docker volumes (local development)
+/data/
+/postgres-data/
+/minio-data/
+
+# Logs
+logs/
+*.log
+
+# Backup files
+*.bak
+*.backup
+
+# Certificates (if any local certs)
+*.crt
+*.key
+!*.example.crt
+!*.example.key
