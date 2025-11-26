@@ -6,11 +6,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/shipyard.git"
+    "url": "https://github.com/LunarForge/Shipyard.git"
   },
-  "homepage": "https://github.com/yourusername/shipyard#readme",
+  "homepage": "https://github.com/LunarForge/Shipyard#readme",
   "bugs": {
-    "url": "https://github.com/yourusername/shipyard/issues"
+    "url": "https://github.com/LunarForge/Shipyard/issues"
   },
   "keywords": [
     "electron",

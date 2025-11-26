@@ -54,8 +54,8 @@
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/shipyard.git
-   cd shipyard
+   git clone https://github.com/LunarForge/Shipyard.git
+   cd Shipyard
    ```
 
 2. **Configure environment:**
@@ -291,7 +291,7 @@ server {
 ```yaml
 services:
   app:
-    image: ghcr.io/yourusername/Shipyard:latest
+    image: ghcr.io/lunarforge/shipyard:latest
     restart: always
     environment:
       - NODE_ENV=production

@@ -10,7 +10,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 ### Reporting Bugs
 
-1. Check if the bug has already been reported in [Issues](https://github.com/yourusername/Shipyard/issues)
+1. Check if the bug has already been reported in [Issues](https://github.com/LunarForge/Shipyard/issues)
 2. If not, create a new issue with:
    - Clear, descriptive title
    - Steps to reproduce
@@ -155,7 +155,7 @@ If you discover a security vulnerability, please DO NOT open a public issue. Ins
 
 ## Questions?
 
-Feel free to open a [Discussion](https://github.com/yourusername/Shipyard/discussions) for questions or ideas.
+Feel free to open a [Discussion](https://github.com/LunarForge/Shipyard/discussions) for questions or ideas.
 
 ## License
 

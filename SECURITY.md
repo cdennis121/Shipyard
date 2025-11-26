@@ -14,11 +14,12 @@ We take security vulnerabilities seriously. If you discover a security issue, pl
 
 **Please DO NOT open a public GitHub issue for security vulnerabilities.**
 
-Instead, please report security vulnerabilities by emailing:
+Instead, please report security vulnerabilities via:
 
-📧 **security@yourdomain.com**
+🔒 **GitHub's private vulnerability reporting** (preferred):  
+[Report a vulnerability](https://github.com/LunarForge/Shipyard/security/advisories/new)
 
-Or use GitHub's private vulnerability reporting feature if available.
+Or email: **security@lunarforge.dev**
 
 ### What to Include
 
