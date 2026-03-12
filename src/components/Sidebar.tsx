@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
+  AppWindow,
   Package,
   Key,
   Users,
@@ -21,7 +22,8 @@ interface SidebarProps {
     name?: string | null;
     role?: string;
   };
-  onSignOut: () => void;
+  onSignOut: () => Promise<void>;
+  className?: string;
 }
 
 const navItems = [
@@ -29,6 +31,11 @@ const navItems = [
     title: 'Dashboard',
     href: '/dashboard',
     icon: LayoutDashboard,
+  },
+  {
+    title: 'Apps',
+    href: '/dashboard/apps',
+    icon: AppWindow,
   },
   {
     title: 'Releases',
@@ -55,11 +62,11 @@ const adminNavItems = [
   },
 ];
 
-export function Sidebar({ user, onSignOut }: SidebarProps) {
+export function Sidebar({ user, onSignOut, className }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r bg-muted/30">
+    <div className={cn('flex w-64 flex-col border-r bg-muted/30', className)}>
       {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b px-6">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600">
@@ -97,7 +104,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
         {user.role === 'admin' && (
           <>
             <Separator className="my-4" />
-            <div className="mb-2 px-3 text-xs font-medium text-muted-foreground">
+            <div className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Administration
             </div>
             <div className="space-y-1">
@@ -128,7 +135,7 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
       <div className="border-t p-4">
         <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
           <Avatar className="h-9 w-9">
-            <AvatarFallback className="bg-primary/10 text-primary">
+            <AvatarFallback className="bg-primary/10 font-medium text-primary">
               {user.name?.charAt(0).toUpperCase() || 'U'}
             </AvatarFallback>
           </Avatar>
@@ -139,7 +146,13 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
             </span>
           </div>
           <form action={onSignOut}>
-            <Button variant="ghost" size="icon" className="h-8 w-8" type="submit">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              type="submit"
+              title="Sign out"
+            >
               <LogOut className="h-4 w-4" />
             </Button>
           </form>

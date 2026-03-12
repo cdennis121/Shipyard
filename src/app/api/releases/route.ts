@@ -4,6 +4,10 @@ import {
   requireAdminUser,
   requireAuthenticatedUser,
 } from '@/lib/route-auth';
+import {
+  createReleaseSchema,
+  getValidationError,
+} from '@/lib/request-schemas';
 
 // GET - List all releases
 export async function GET(request: NextRequest) {
@@ -54,32 +58,25 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    const parsed = createReleaseSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(getValidationError(parsed.error), {
+        status: 400,
+      });
+    }
     const {
       appId,
       version,
       name,
       notes,
-      channel = 'latest',
-      platform = 'windows',
-      stagingPercentage = 100,
-      isPublic = true,
-      published = false,
-    } = body;
-
-    if (!appId) {
-      return NextResponse.json(
-        { error: 'App ID is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!version) {
-      return NextResponse.json(
-        { error: 'Version is required' },
-        { status: 400 }
-      );
-    }
+      channel,
+      platform,
+      stagingPercentage,
+      isPublic,
+      published,
+    } = parsed.data;
 
     // Verify app exists
     const app = await prisma.app.findUnique({ where: { id: appId } });

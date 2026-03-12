@@ -1,17 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { cleanupOrphanedFiles } from '@/lib/cleanup';
+import { requireAdminUser } from '@/lib/route-auth';
+import {
+  cleanupRequestSchema,
+  getValidationError,
+} from '@/lib/request-schemas';
 
 // POST - Trigger manual cleanup
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAdminUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
 
   try {
     const body = await request.json().catch(() => ({}));
-    const dryRun = body.dryRun === true;
+    const parsed = cleanupRequestSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(getValidationError(parsed.error), {
+        status: 400,
+      });
+    }
+    const { dryRun } = parsed.data;
 
     const result = await cleanupOrphanedFiles(dryRun);
 
@@ -30,9 +41,9 @@ export async function POST(request: NextRequest) {
 
 // GET - Get cleanup preview (dry run)
 export async function GET() {
-  const session = await auth();
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAdminUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
 
   try {

@@ -4,6 +4,10 @@ import {
   requireAdminUser,
   requireAuthenticatedUser,
 } from '@/lib/route-auth';
+import {
+  createAppSchema,
+  getValidationError,
+} from '@/lib/request-schemas';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,24 +50,15 @@ export async function POST(request: NextRequest) {
     }
     const { user } = authResult;
 
-    const body = await request.json();
-    const { name, slug, description, icon } = body;
+    const body = await request.json().catch(() => null);
+    const parsed = createAppSchema.safeParse(body);
 
-    if (!name || !slug) {
-      return NextResponse.json(
-        { error: 'Name and slug are required' },
-        { status: 400 }
-      );
+    if (!parsed.success) {
+      return NextResponse.json(getValidationError(parsed.error), {
+        status: 400,
+      });
     }
-
-    // Validate slug format (lowercase, alphanumeric, hyphens)
-    const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-    if (!slugRegex.test(slug)) {
-      return NextResponse.json(
-        { error: 'Slug must be lowercase alphanumeric with hyphens (e.g., my-app)' },
-        { status: 400 }
-      );
-    }
+    const { name, slug, description, icon } = parsed.data;
 
     // Check if slug already exists
     const existingApp = await prisma.app.findUnique({

@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAdminUser } from '@/lib/route-auth';
+import {
+  createReleaseFileSchema,
+  getValidationError,
+} from '@/lib/request-schemas';
 
 type RouteParams = Promise<{ id: string }>;
 
@@ -17,15 +21,15 @@ export async function POST(
   const { id: releaseId } = await params;
 
   try {
-    const body = await request.json();
-    const { filename, s3Key, sha512, size, arch } = body;
+    const body = await request.json().catch(() => null);
+    const parsed = createReleaseFileSchema.safeParse(body);
 
-    if (!filename || !s3Key || !sha512 || !size) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+    if (!parsed.success) {
+      return NextResponse.json(getValidationError(parsed.error), {
+        status: 400,
+      });
     }
+    const { filename, s3Key, sha512, size, arch } = parsed.data;
 
     // Verify release exists
     const release = await prisma.release.findUnique({

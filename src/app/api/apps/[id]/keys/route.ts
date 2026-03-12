@@ -6,6 +6,10 @@ import {
   requireAdminUser,
   requireAuthenticatedUser,
 } from '@/lib/route-auth';
+import {
+  createApiKeySchema,
+  getValidationError,
+} from '@/lib/request-schemas';
 
 type RouteParams = Promise<{ id: string }>;
 
@@ -74,15 +78,15 @@ export async function POST(
   const { id: appId } = await params;
 
   try {
-    const body = await request.json();
-    const { name, expiresInDays } = body;
+    const body = await request.json().catch(() => null);
+    const parsed = createApiKeySchema.safeParse(body);
 
-    if (!name) {
-      return NextResponse.json(
-        { error: 'Name is required' },
-        { status: 400 }
-      );
+    if (!parsed.success) {
+      return NextResponse.json(getValidationError(parsed.error), {
+        status: 400,
+      });
     }
+    const { name, expiresInDays } = parsed.data;
 
     // Check if app exists
     const app = await prisma.app.findUnique({

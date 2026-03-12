@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import prisma from '@/lib/db';
 import bcrypt from 'bcrypt';
+import { requireAdminUser } from '@/lib/route-auth';
+import {
+  createUserSchema,
+  getValidationError,
+} from '@/lib/request-schemas';
 
 // GET - List all users
 export async function GET() {
-  const session = await auth();
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAdminUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
 
   try {
@@ -36,21 +40,21 @@ export async function GET() {
 
 // POST - Create new user
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAdminUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
 
   try {
-    const body = await request.json();
-    const { username, password, role = 'admin' } = body;
+    const body = await request.json().catch(() => null);
+    const parsed = createUserSchema.safeParse(body);
 
-    if (!username || !password) {
-      return NextResponse.json(
-        { error: 'Username and password are required' },
-        { status: 400 }
-      );
+    if (!parsed.success) {
+      return NextResponse.json(getValidationError(parsed.error), {
+        status: 400,
+      });
     }
+    const { username, password, role } = parsed.data;
 
     // Check for existing user
     const existing = await prisma.user.findUnique({

@@ -4,6 +4,10 @@ import {
   requireAdminUser,
   requireAuthenticatedUser,
 } from '@/lib/route-auth';
+import {
+  getValidationError,
+  updateAppSchema,
+} from '@/lib/request-schemas';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -54,8 +58,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id } = await params;
-    const body = await request.json();
-    const { name, description, icon } = body;
+    const body = await request.json().catch(() => null);
+    const parsed = updateAppSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(getValidationError(parsed.error), {
+        status: 400,
+      });
+    }
+    const { name, description, icon } = parsed.data;
 
     const app = await prisma.app.update({
       where: { id },

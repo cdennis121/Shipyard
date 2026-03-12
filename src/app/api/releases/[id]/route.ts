@@ -5,6 +5,10 @@ import {
   requireAdminUser,
   requireAuthenticatedUser,
 } from '@/lib/route-auth';
+import {
+  getValidationError,
+  updateReleaseSchema,
+} from '@/lib/request-schemas';
 
 type RouteParams = Promise<{ id: string }>;
 
@@ -71,7 +75,14 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    const body = await request.json();
+    const body = await request.json().catch(() => null);
+    const parsed = updateReleaseSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(getValidationError(parsed.error), {
+        status: 400,
+      });
+    }
     const {
       version,
       name,
@@ -81,7 +92,7 @@ export async function PATCH(
       stagingPercentage,
       isPublic,
       published,
-    } = body;
+    } = parsed.data;
 
     // Check if release exists
     const existing = await prisma.release.findUnique({

@@ -2,7 +2,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +30,8 @@ interface App {
 
 export default function NewReleasePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedAppId = searchParams.get('appId');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [apps, setApps] = useState<App[]>([]);
@@ -53,9 +56,13 @@ export default function NewReleasePage() {
         if (response.ok) {
           const data = await response.json();
           setApps(data);
-          // Auto-select if only one app
-          if (data.length === 1) {
-            setFormData(f => ({ ...f, appId: data[0].id }));
+          const requestedApp = data.find((app: App) => app.id === preselectedAppId);
+
+          if (requestedApp) {
+            setFormData((current) => ({ ...current, appId: requestedApp.id }));
+          } else if (data.length === 1) {
+            // Auto-select if only one app
+            setFormData((current) => ({ ...current, appId: data[0].id }));
           }
         }
       } catch (err) {
@@ -65,7 +72,7 @@ export default function NewReleasePage() {
       }
     }
     loadApps();
-  }, []);
+  }, [preselectedAppId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,9 +134,9 @@ export default function NewReleasePage() {
               <Alert>
                 <AlertDescription>
                   You need to create an app first before creating releases.{' '}
-                  <a href="/dashboard/apps" className="text-primary underline">
+                  <Link href="/dashboard/apps" className="text-primary underline">
                     Go to Apps →
-                  </a>
+                  </Link>
                 </AlertDescription>
               </Alert>
             )}
