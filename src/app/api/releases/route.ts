@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import prisma from '@/lib/db';
+import {
+  requireAdminUser,
+  requireAuthenticatedUser,
+} from '@/lib/route-auth';
 
 // GET - List all releases
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAuthenticatedUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
 
   const searchParams = request.nextUrl.searchParams;
@@ -45,9 +48,9 @@ export async function GET(request: NextRequest) {
 
 // POST - Create new release
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAdminUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
 
   try {

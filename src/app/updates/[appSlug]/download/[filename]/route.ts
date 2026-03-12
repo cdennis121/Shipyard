@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { getDownloadUrl } from '@/lib/s3-operations';
-import bcrypt from 'bcrypt';
+import {
+  extractApiKey,
+  getRequestIp,
+  validateApiKey,
+} from '@/lib/update-utils';
 
 type RouteParams = Promise<{ appSlug: string; filename: string }>;
 
@@ -24,18 +28,24 @@ export async function GET(
       );
     }
 
-    // Find the release file by filename within this app
-    const releaseFile = await prisma.releaseFile.findFirst({
+    // Legacy route fallback: serve the newest published release for this filename.
+    const matchingFiles = await prisma.releaseFile.findMany({
       where: {
         filename,
         release: {
           appId: app.id,
+          published: true,
         },
       },
       include: {
         release: true,
       },
     });
+    const releaseFile = matchingFiles.sort(
+      (a, b) =>
+        b.release.releaseDate.getTime() - a.release.releaseDate.getTime() ||
+        b.createdAt.getTime() - a.createdAt.getTime()
+    )[0];
 
     if (!releaseFile) {
       return NextResponse.json(
@@ -46,32 +56,10 @@ export async function GET(
 
     const release = releaseFile.release;
 
-    // Check if release is published
-    if (!release.published) {
-      return NextResponse.json(
-        { error: 'Release not published' },
-        { status: 404 }
-      );
-    }
-
     // If release is private, validate API key
     if (!release.isPublic) {
-      // Support multiple ways to pass the API key:
-      // 1. x-api-key header (custom header)
-      // 2. Authorization: Bearer <token> (standard OAuth-style)
-      // 3. Authorization: <token> (simple auth header)
-      // 4. key query parameter
-      let apiKey = request.headers.get('x-api-key') || request.nextUrl.searchParams.get('key');
-      
-      // Check Authorization header if no x-api-key
-      if (!apiKey) {
-        const authHeader = request.headers.get('authorization');
-        if (authHeader) {
-          // Remove "Bearer " prefix if present
-          apiKey = authHeader.replace(/^Bearer\s+/i, '');
-        }
-      }
-      
+      const apiKey = extractApiKey(request);
+
       if (!apiKey) {
         return NextResponse.json(
           { error: 'API key required for private release' },
@@ -79,7 +67,7 @@ export async function GET(
         );
       }
 
-      const validKey = await findValidApiKey(app.id, apiKey);
+      const validKey = await validateApiKey(app.id, apiKey);
       
       if (!validKey) {
         return NextResponse.json(
@@ -97,7 +85,7 @@ export async function GET(
         type: 'download',
         platform: release.platform,
         arch: releaseFile.arch || undefined,
-        ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+        ip: getRequestIp(request),
         userAgent: request.headers.get('user-agent') || undefined,
       },
     });
@@ -119,26 +107,3 @@ export async function GET(
   }
 }
 
-async function findValidApiKey(
-  appId: string,
-  providedKey: string
-): Promise<boolean> {
-  const apiKeys = await prisma.apiKey.findMany({
-    where: {
-      appId,
-      OR: [
-        { expiresAt: null },
-        { expiresAt: { gt: new Date() } },
-      ],
-    },
-  });
-
-  for (const key of apiKeys) {
-    const isValid = await bcrypt.compare(providedKey, key.keyHash);
-    if (isValid) {
-      return true;
-    }
-  }
-
-  return false;
-}

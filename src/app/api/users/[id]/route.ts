@@ -1,44 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { requireAdminUser } from '@/lib/route-auth';
 
 type RouteParams = Promise<{ id: string }>;
-
-// Helper to get current user from database
-async function getCurrentUser() {
-  const session = await auth();
-  if (!session?.user) {
-    return null;
-  }
-
-  // First try by ID
-  if (session.user.id) {
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-    });
-    if (user) return user;
-  }
-
-  // Fallback: find by username (handles case where session has old ID after DB reset)
-  if (session.user.name) {
-    const user = await prisma.user.findUnique({
-      where: { username: session.user.name },
-    });
-    if (user) return user;
-  }
-
-  return null;
-}
 
 // DELETE - Delete a user
 export async function DELETE(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser || currentUser.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAdminUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
+  const { user: currentUser } = authResult;
 
   const { id } = await params;
 
@@ -51,14 +26,35 @@ export async function DELETE(
   }
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { id },
-    });
+    const [user, ownedAppsCount, createdApiKeysCount] = await prisma.$transaction([
+      prisma.user.findUnique({
+        where: { id },
+      }),
+      prisma.app.count({
+        where: { createdById: id },
+      }),
+      prisma.apiKey.count({
+        where: { createdById: id },
+      }),
+    ]);
 
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
+      );
+    }
+
+    if (ownedAppsCount > 0 || createdApiKeysCount > 0) {
+      return NextResponse.json(
+        {
+          error: 'Cannot delete a user who still owns apps or API keys',
+          counts: {
+            apps: ownedAppsCount,
+            apiKeys: createdApiKeysCount,
+          },
+        },
+        { status: 409 }
       );
     }
 

@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stringify } from 'yaml';
 import prisma from '@/lib/db';
-import bcrypt from 'bcrypt';
 import { getDownloadUrl } from '@/lib/s3-operations';
+import {
+  buildScopedDownloadPath,
+  extractApiKey,
+  getRequestIp,
+  validateApiKey,
+} from '@/lib/update-utils';
 
 type RouteParams = Promise<{ appSlug: string; channel: string }>;
 
 interface FileInfo {
+  id: string;
   filename: string;
   sha512: string;
   size: number;
@@ -51,27 +57,6 @@ function hashCode(str: string): number {
   return Math.abs(hash);
 }
 
-// Helper to extract API key from request
-function extractApiKey(request: NextRequest): string | null {
-  // Support multiple ways to pass the API key:
-  // 1. x-api-key header (custom header)
-  // 2. Authorization: Bearer <token> (standard OAuth-style)
-  // 3. Authorization: <token> (simple auth header)
-  // 4. key query parameter
-  let apiKey = request.headers.get('x-api-key') || request.nextUrl.searchParams.get('key');
-  
-  // Check Authorization header if no x-api-key
-  if (!apiKey) {
-    const authHeader = request.headers.get('authorization');
-    if (authHeader) {
-      // Remove "Bearer " prefix if present
-      apiKey = authHeader.replace(/^Bearer\s+/i, '');
-    }
-  }
-  
-  return apiKey;
-}
-
 export async function GET(
   request: NextRequest,
   { params }: { params: RouteParams }
@@ -113,18 +98,24 @@ async function handleFileDownload(
       );
     }
 
-    // Find the release file by filename within this app
-    const releaseFile = await prisma.releaseFile.findFirst({
+    // Legacy path fallback: pick the newest published release for this filename.
+    const matchingFiles = await prisma.releaseFile.findMany({
       where: {
         filename,
         release: {
           appId: app.id,
+          published: true,
         },
       },
       include: {
         release: true,
       },
     });
+    const releaseFile = matchingFiles.sort(
+      (a, b) =>
+        b.release.releaseDate.getTime() - a.release.releaseDate.getTime() ||
+        b.createdAt.getTime() - a.createdAt.getTime()
+    )[0];
 
     if (!releaseFile) {
       return NextResponse.json(
@@ -134,14 +125,6 @@ async function handleFileDownload(
     }
 
     const release = releaseFile.release;
-
-    // Check if release is published
-    if (!release.published) {
-      return NextResponse.json(
-        { error: 'Release not published' },
-        { status: 404 }
-      );
-    }
 
     // If release is private, validate API key
     if (!release.isPublic) {
@@ -172,7 +155,7 @@ async function handleFileDownload(
         type: 'download',
         platform: release.platform,
         arch: releaseFile.arch || undefined,
-        ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+        ip: getRequestIp(request),
         userAgent: request.headers.get('user-agent') || undefined,
       },
     });
@@ -235,7 +218,11 @@ async function handleChannelRequest(
         releaseDate: 'desc',
       },
       include: {
-        files: true,
+        files: {
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
       },
     });
 
@@ -305,7 +292,7 @@ async function handleChannelRequest(
         releaseId: release.id,
         type: 'check',
         platform,
-        ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+        ip: getRequestIp(request),
         userAgent: request.headers.get('user-agent') || undefined,
       },
     });
@@ -317,11 +304,11 @@ async function handleChannelRequest(
       releaseDate: release.releaseDate.toISOString(),
       ...(release.name && { releaseName: release.name }),
       ...(release.notes && { releaseNotes: release.notes }),
-      path: primaryFile.filename,
+      path: buildScopedDownloadPath(primaryFile.id, primaryFile.filename),
       sha512: primaryFile.sha512,
       stagingPercentage: release.stagingPercentage,
       files: release.files.map((f: FileInfo) => ({
-        url: f.filename,
+        url: buildScopedDownloadPath(f.id, f.filename),
         sha512: f.sha512,
         size: f.size,
         ...(f.arch && { arch: f.arch }),
@@ -343,26 +330,3 @@ async function handleChannelRequest(
   }
 }
 
-async function validateApiKey(
-  appId: string,
-  providedKey: string
-): Promise<boolean> {
-  const apiKeys = await prisma.apiKey.findMany({
-    where: {
-      appId,
-      OR: [
-        { expiresAt: null },
-        { expiresAt: { gt: new Date() } },
-      ],
-    },
-  });
-
-  for (const key of apiKeys) {
-    const isValid = await bcrypt.compare(providedKey, key.keyHash);
-    if (isValid) {
-      return true;
-    }
-  }
-
-  return false;
-}

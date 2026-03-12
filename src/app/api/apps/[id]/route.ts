@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { auth } from '@/lib/auth';
+import {
+  requireAdminUser,
+  requireAuthenticatedUser,
+} from '@/lib/route-auth';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -9,9 +12,9 @@ interface RouteParams {
 // GET /api/apps/[id] - Get a single app
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await requireAuthenticatedUser();
+    if ('response' in authResult) {
+      return authResult.response;
     }
 
     const { id } = await params;
@@ -45,9 +48,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/apps/[id] - Update an app
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await requireAdminUser();
+    if ('response' in authResult) {
+      return authResult.response;
     }
 
     const { id } = await params;
@@ -78,13 +81,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/apps/[id] - Delete an app
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    if (session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    const authResult = await requireAdminUser();
+    if ('response' in authResult) {
+      return authResult.response;
     }
 
     const { id } = await params;

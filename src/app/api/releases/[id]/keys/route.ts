@@ -1,45 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import prisma from '@/lib/db';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
+import {
+  requireAdminUser,
+  requireAuthenticatedUser,
+} from '@/lib/route-auth';
 
 type RouteParams = Promise<{ id: string }>;
-
-// Helper to get current user from database
-async function getCurrentUser() {
-  const session = await auth();
-  if (!session?.user) {
-    return null;
-  }
-
-  // First try by ID
-  if (session.user.id) {
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-    });
-    if (user) return user;
-  }
-
-  // Fallback: find by username (handles case where session has old ID after DB reset)
-  if (session.user.name) {
-    const user = await prisma.user.findUnique({
-      where: { username: session.user.name },
-    });
-    if (user) return user;
-  }
-
-  return null;
-}
 
 // GET - List API keys for a release's app
 export async function GET(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAuthenticatedUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
 
   const { id: releaseId } = await params;
@@ -89,10 +66,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAdminUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
+  const { user } = authResult;
 
   const { id: releaseId } = await params;
 

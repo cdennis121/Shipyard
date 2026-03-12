@@ -1,41 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { auth } from '@/lib/auth';
+import {
+  requireAdminUser,
+  requireAuthenticatedUser,
+} from '@/lib/route-auth';
 
 export const dynamic = 'force-dynamic';
-
-// Helper to get current user from database
-async function getCurrentUser() {
-  const session = await auth();
-  if (!session?.user) {
-    return null;
-  }
-
-  // First try by ID
-  if (session.user.id) {
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-    });
-    if (user) return user;
-  }
-
-  // Fallback: find by username (handles case where session has old ID after DB reset)
-  if (session.user.name) {
-    const user = await prisma.user.findUnique({
-      where: { username: session.user.name },
-    });
-    if (user) return user;
-  }
-
-  return null;
-}
 
 // GET /api/apps - List all apps
 export async function GET() {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await requireAuthenticatedUser();
+    if ('response' in authResult) {
+      return authResult.response;
     }
 
     const apps = await prisma.app.findMany({
@@ -63,10 +40,11 @@ export async function GET() {
 // POST /api/apps - Create a new app
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await requireAdminUser();
+    if ('response' in authResult) {
+      return authResult.response;
     }
+    const { user } = authResult;
 
     const body = await request.json();
     const { name, slug, description, icon } = body;

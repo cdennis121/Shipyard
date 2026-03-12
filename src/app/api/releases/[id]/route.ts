@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import prisma from '@/lib/db';
 import { deleteReleaseFiles } from '@/lib/cleanup';
+import {
+  requireAdminUser,
+  requireAuthenticatedUser,
+} from '@/lib/route-auth';
 
 type RouteParams = Promise<{ id: string }>;
 
@@ -10,9 +13,9 @@ export async function GET(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAuthenticatedUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
 
   const { id } = await params;
@@ -60,9 +63,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAdminUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
 
   const { id } = await params;
@@ -98,16 +101,18 @@ export async function PATCH(
       const checkChannel = channel || existing.channel;
       const checkPlatform = platform || existing.platform;
 
-      const duplicate = await prisma.release.findFirst({
+      const duplicate = await prisma.release.findUnique({
         where: {
-          version: checkVersion,
-          channel: checkChannel,
-          platform: checkPlatform,
-          NOT: { id },
+          appId_version_channel_platform: {
+            appId: existing.appId,
+            version: checkVersion,
+            channel: checkChannel,
+            platform: checkPlatform,
+          },
         },
       });
 
-      if (duplicate) {
+      if (duplicate && duplicate.id !== id) {
         return NextResponse.json(
           { error: 'A release with this version, channel, and platform already exists' },
           { status: 409 }
@@ -147,9 +152,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAdminUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
 
   const { id } = await params;

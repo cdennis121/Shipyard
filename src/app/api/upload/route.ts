@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { getUploadUrl, generateS3Key } from '@/lib/s3-operations';
 import { v4 as uuidv4 } from 'uuid';
+import { requireAdminUser } from '@/lib/route-auth';
 
 // POST - Get presigned upload URL
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAdminUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
 
   try {

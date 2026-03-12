@@ -6,7 +6,6 @@ import {
   Key,
   Plus,
   Trash2,
-  ExternalLink,
   Copy,
   Check,
   AlertCircle,

@@ -1,3 +1,5 @@
+/* eslint-disable @next/next/no-img-element */
+
 import Link from 'next/link';
 import { Package, Plus, Filter, Download, Calendar, AppWindow } from 'lucide-react';
 import prisma from '@/lib/db';

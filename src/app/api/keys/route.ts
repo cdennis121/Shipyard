@@ -31,8 +31,13 @@ export async function GET() {
     });
 
     // Don't return the actual key hash
-    const safeKeys = apiKeys.map(({ keyHash, ...key }) => ({
-      ...key,
+    const safeKeys = apiKeys.map((key) => ({
+      id: key.id,
+      name: key.name,
+      expiresAt: key.expiresAt,
+      createdAt: key.createdAt,
+      app: key.app,
+      createdBy: key.createdBy,
       // Show last 4 chars only if available (we won't have the original key)
       keyPreview: '••••••••',
     }));

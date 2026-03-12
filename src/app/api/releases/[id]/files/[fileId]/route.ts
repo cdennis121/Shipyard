@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import prisma from '@/lib/db';
 import { deleteFile } from '@/lib/s3-operations';
+import { requireAdminUser } from '@/lib/route-auth';
 
 type RouteParams = Promise<{ id: string; fileId: string }>;
 
@@ -10,9 +10,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAdminUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
 
   const { id: releaseId, fileId } = await params;
