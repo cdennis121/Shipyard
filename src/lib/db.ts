@@ -1,3 +1,4 @@
+import { createPrismaAdapter } from '@/lib/prisma-adapter';
 import { PrismaClient } from '@/generated/prisma';
 
 const globalForPrisma = globalThis as unknown as {
@@ -7,6 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 export const prisma =
   globalForPrisma.prisma ??
   new PrismaClient({
+    adapter: createPrismaAdapter(),
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   });
 

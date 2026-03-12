@@ -1,6 +1,4 @@
 name: shipyard
-version: '3.8'
-
 services:
   # Database migrations
   migrate:
@@ -9,7 +7,7 @@ services:
       dockerfile: Dockerfile.migrate
     container_name: shipyard-migrate
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-shipyard}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-shipyard}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-shipyard}:${POSTGRES_PASSWORD:-shipyard}@db:5432/${POSTGRES_DB:-shipyard}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
     depends_on:
@@ -28,7 +26,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-shipyard}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-shipyard}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-shipyard}:${POSTGRES_PASSWORD:-shipyard}@db:5432/${POSTGRES_DB:-shipyard}
       - S3_ENDPOINT=http://minio:9000
       - S3_PUBLIC_ENDPOINT=${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
       - S3_ACCESS_KEY_ID=${MINIO_ROOT_USER:-minioadmin}
@@ -101,12 +99,12 @@ services:
       - "5433:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-shipyard}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shipyard}
       POSTGRES_DB: ${POSTGRES_DB:-shipyard}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U shipyard -d shipyard"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shipyard} -d ${POSTGRES_DB:-shipyard}"]
       interval: 5s
       timeout: 5s
       retries: 5

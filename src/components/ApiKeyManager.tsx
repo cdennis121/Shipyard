@@ -131,7 +131,7 @@ export function ApiKeyManager({ releaseId, apiKeys, onUpdate }: ApiKeyManagerPro
                       <strong>Save this key now!</strong> It will not be shown again.
                     </AlertDescription>
                   </Alert>
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Input value={newKey} readOnly className="font-mono text-sm" />
                     <Button
                       variant="outline"
@@ -199,27 +199,19 @@ export function ApiKeyManager({ releaseId, apiKeys, onUpdate }: ApiKeyManagerPro
             No API keys created yet.
           </p>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Created By</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Expires</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <>
+            <div className="space-y-3 md:hidden">
               {apiKeys.map((key) => {
                 const isExpired = key.expiresAt && new Date(key.expiresAt) < new Date();
                 return (
-                  <TableRow key={key.id}>
-                    <TableCell className="font-medium">{key.name}</TableCell>
-                    <TableCell>{key.createdBy.username}</TableCell>
-                    <TableCell>
-                      {new Date(key.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
+                  <div key={key.id} className="rounded-lg border p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-medium">{key.name}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Created by {key.createdBy.username}
+                        </p>
+                      </div>
                       {key.expiresAt ? (
                         <Badge variant={isExpired ? 'destructive' : 'outline'}>
                           {isExpired ? 'Expired' : new Date(key.expiresAt).toLocaleDateString()}
@@ -227,21 +219,82 @@ export function ApiKeyManager({ releaseId, apiKeys, onUpdate }: ApiKeyManagerPro
                       ) : (
                         <Badge variant="secondary">Never</Badge>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(key.id)}
-                      >
-                        Revoke
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Created</p>
+                        <p className="mt-1 font-medium">
+                          {new Date(key.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Expires</p>
+                        <p className="mt-1 font-medium">
+                          {key.expiresAt ? new Date(key.expiresAt).toLocaleDateString() : 'Never'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-4 w-full"
+                      onClick={() => handleDelete(key.id)}
+                    >
+                      Revoke
+                    </Button>
+                  </div>
                 );
               })}
-            </TableBody>
-          </Table>
+            </div>
+
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Created By</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Expires</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {apiKeys.map((key) => {
+                    const isExpired = key.expiresAt && new Date(key.expiresAt) < new Date();
+                    return (
+                      <TableRow key={key.id}>
+                        <TableCell className="font-medium">{key.name}</TableCell>
+                        <TableCell>{key.createdBy.username}</TableCell>
+                        <TableCell>
+                          {new Date(key.createdAt).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          {key.expiresAt ? (
+                            <Badge variant={isExpired ? 'destructive' : 'outline'}>
+                              {isExpired ? 'Expired' : new Date(key.expiresAt).toLocaleDateString()}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">Never</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(key.id)}
+                          >
+                            Revoke
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

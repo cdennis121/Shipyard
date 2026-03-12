@@ -205,7 +205,7 @@ export function ApiKeysClient() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">API Keys</h1>
           <p className="text-muted-foreground">
@@ -241,7 +241,7 @@ export function ApiKeysClient() {
                     <strong>Save this key now!</strong> It will not be shown again.
                   </AlertDescription>
                 </Alert>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Input 
                     value={newKey} 
                     readOnly 
@@ -388,75 +388,133 @@ export function ApiKeysClient() {
               </Button>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>App</TableHead>
-                  <TableHead>Created By</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Expires</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <>
+              <div className="space-y-3 md:hidden">
                 {apiKeys.map((key) => (
-                  <TableRow key={key.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Key className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{key.name}</span>
+                  <div key={key.id} className="rounded-lg border p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <Key className="h-4 w-4 text-muted-foreground" />
+                          <p className="truncate font-medium">{key.name}</p>
+                        </div>
+                        <Link
+                          href="/dashboard/apps"
+                          className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                        >
+                          <Package className="h-3 w-3" />
+                          {key.app.name}
+                        </Link>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <Link 
-                        href={`/dashboard/apps`}
-                        className="flex items-center gap-1 text-primary hover:underline"
-                      >
-                        <Package className="h-3 w-3" />
-                        {key.app.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <User className="h-3 w-3" />
-                        {key.createdBy.username}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {formatDate(key.createdAt)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {key.expiresAt ? formatDate(key.expiresAt) : 'Never'}
-                    </TableCell>
-                    <TableCell>
+
                       {isExpired(key.expiresAt) ? (
                         <Badge variant="destructive">Expired</Badge>
                       ) : (
                         <Badge variant="default" className="bg-green-500">Active</Badge>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(key.id)}
-                          className="text-destructive hover:text-destructive"
-                          title="Revoke Key"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                    </div>
+
+                    <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Created By</p>
+                        <p className="mt-1 font-medium">{key.createdBy.username}</p>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Created</p>
+                        <p className="mt-1 font-medium">{formatDate(key.createdAt)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">Expires</p>
+                        <p className="mt-1 font-medium">
+                          {key.expiresAt ? formatDate(key.expiresAt) : 'Never'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-4 w-full text-destructive hover:text-destructive"
+                      onClick={() => handleDelete(key.id)}
+                    >
+                      Revoke Key
+                    </Button>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>App</TableHead>
+                      <TableHead>Created By</TableHead>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Expires</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {apiKeys.map((key) => (
+                      <TableRow key={key.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Key className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{key.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Link 
+                            href={`/dashboard/apps`}
+                            className="flex items-center gap-1 text-primary hover:underline"
+                          >
+                            <Package className="h-3 w-3" />
+                            {key.app.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <User className="h-3 w-3" />
+                            {key.createdBy.username}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(key.createdAt)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {key.expiresAt ? formatDate(key.expiresAt) : 'Never'}
+                        </TableCell>
+                        <TableCell>
+                          {isExpired(key.expiresAt) ? (
+                            <Badge variant="destructive">Expired</Badge>
+                          ) : (
+                            <Badge variant="default" className="bg-green-500">Active</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDelete(key.id)}
+                              className="text-destructive hover:text-destructive"
+                              title="Revoke Key"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

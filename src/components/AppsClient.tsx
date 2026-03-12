@@ -211,7 +211,7 @@ export function AppsClient() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Apps</h1>
           <p className="text-muted-foreground">
@@ -421,7 +421,7 @@ export function AppsClient() {
                   </p>
                 )}
 
-                <div className="flex items-center gap-4 text-sm">
+                <div className="flex flex-wrap items-center gap-4 text-sm">
                   <div className="flex items-center gap-1.5">
                     <Package className="h-4 w-4 text-muted-foreground" />
                     <span>{app._count.releases} releases</span>
@@ -450,15 +450,15 @@ export function AppsClient() {
                   </Button>
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                <div className="flex flex-col gap-2 pt-2 sm:flex-row">
                   <Link href={`/dashboard/releases?appId=${app.id}`} className="flex-1">
                     <Button variant="outline" size="sm" className="w-full gap-1">
                       <Package className="h-3 w-3" />
                       Releases
                     </Button>
                   </Link>
-                  <Link href={`/dashboard/releases/new?appId=${app.id}`}>
-                    <Button size="sm" className="gap-1">
+                  <Link href={`/dashboard/releases/new?appId=${app.id}`} className="sm:flex-none">
+                    <Button size="sm" className="w-full gap-1">
                       <Plus className="h-3 w-3" />
                       New Release
                     </Button>

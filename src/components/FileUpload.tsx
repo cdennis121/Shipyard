@@ -168,7 +168,7 @@ export function FileUpload({
         >
           {file ? (
             <div className="space-y-2">
-              <p className="font-medium">{file.name}</p>
+              <p className="font-medium break-all">{file.name}</p>
               <p className="text-sm text-muted-foreground">
                 {(file.size / 1024 / 1024).toFixed(2)} MB
               </p>
@@ -187,7 +187,7 @@ export function FileUpload({
               </p>
               <Input
                 type="file"
-                className="max-w-xs mx-auto"
+                className="mx-auto w-full max-w-sm"
                 onChange={handleFileChange}
                 accept=".exe,.dmg,.zip,.AppImage,.deb,.rpm,.blockmap"
               />

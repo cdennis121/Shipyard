@@ -8,12 +8,13 @@ RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 # Copy package files and prisma
 COPY package*.json ./
+COPY prisma.config.ts ./
 COPY prisma ./prisma/
 COPY src/generated ./src/generated/
 COPY tsconfig.json ./
 
 # Install dependencies needed for migrations and seeding
-RUN npm install prisma @prisma/client bcrypt typescript ts-node @types/node @types/bcrypt
+RUN npm install prisma @prisma/client @prisma/adapter-pg bcrypt typescript ts-node @types/node @types/bcrypt
 
 # Generate Prisma client
 RUN npx prisma generate

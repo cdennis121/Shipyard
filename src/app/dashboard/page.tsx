@@ -69,7 +69,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
@@ -149,7 +149,7 @@ export default async function DashboardPage() {
 
       {/* Recent Releases */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-muted-foreground" />
@@ -185,10 +185,10 @@ export default async function DashboardPage() {
                 <Link
                   key={release.id}
                   href={`/dashboard/releases/${release.id}`}
-                  className="flex items-center justify-between border rounded-lg p-4 hover:bg-muted/50 transition-colors"
+                  className="flex flex-col gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="secondary" className="text-xs font-normal">
                         {release.app?.name || 'Unknown App'}
                       </Badge>
@@ -203,7 +203,7 @@ export default async function DashboardPage() {
                       <p className="text-sm text-muted-foreground">{release.name}</p>
                     )}
                   </div>
-                  <div className="text-right flex items-center gap-4">
+                  <div className="flex items-center justify-between gap-4 sm:text-right">
                     <div>
                       <p className="text-sm font-medium flex items-center gap-1">
                         <Download className="h-3 w-3" />

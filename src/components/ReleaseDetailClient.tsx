@@ -236,9 +236,10 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <div className="flex items-center gap-2">
+          <p className="text-sm text-muted-foreground">{release.app.name}</p>
+          <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-3xl font-bold tracking-tight">v{release.version}</h1>
             <Badge variant={release.published ? 'default' : 'secondary'}>
               {release.published ? 'Published' : 'Draft'}
@@ -249,7 +250,7 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
             {release.channel} • {release.platform}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row">
           <Button variant="outline" onClick={() => router.back()}>
             Back
           </Button>
@@ -285,7 +286,7 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
       )}
 
       <Tabs defaultValue="details">
-        <TabsList>
+        <TabsList className="grid h-auto w-full grid-cols-2 md:inline-flex md:w-auto">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="files">Files ({release.files.length})</TabsTrigger>
           <TabsTrigger value="keys">API Keys ({apiKeys.length})</TabsTrigger>
@@ -299,7 +300,7 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
               <CardDescription>Edit release information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="version">Version</Label>
                   <Input
@@ -328,7 +329,7 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="channel">Channel</Label>
                   <Select
@@ -378,7 +379,7 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-0.5">
                   <Label>Public Release</Label>
                   <p className="text-xs text-muted-foreground">
@@ -391,7 +392,7 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
                 />
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="space-y-0.5">
                   <Label>Published</Label>
                   <p className="text-xs text-muted-foreground">
@@ -405,7 +406,7 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={handleSave} disabled={saving}>
+                <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
                   {saving ? 'Saving...' : 'Save Changes'}
                 </Button>
               </div>
@@ -435,42 +436,75 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
                   No files uploaded yet.
                 </p>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Filename</TableHead>
-                      <TableHead>Size</TableHead>
-                      <TableHead>Architecture</TableHead>
-                      <TableHead>SHA512</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <>
+                  <div className="space-y-3 md:hidden">
                     {release.files.map((file) => (
-                      <TableRow key={file.id}>
-                        <TableCell className="font-medium">{file.filename}</TableCell>
-                        <TableCell>{formatBytes(file.size)}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{file.arch || 'N/A'}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <code className="text-xs">
-                            {file.sha512.substring(0, 16)}...
-                          </code>
-                        </TableCell>
-                        <TableCell>
+                      <div key={file.id} className="rounded-lg border p-4">
+                        <div className="space-y-3">
+                          <div>
+                            <p className="font-medium break-all">{file.filename}</p>
+                            <p className="text-sm text-muted-foreground">{formatBytes(file.size)}</p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="outline">{file.arch || 'N/A'}</Badge>
+                            <code className="rounded bg-muted px-2 py-1 text-xs">
+                              {file.sha512.substring(0, 16)}...
+                            </code>
+                          </div>
+
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
+                            className="w-full"
                             onClick={() => handleDeleteFile(file.id)}
                           >
-                            Delete
+                            Delete File
                           </Button>
-                        </TableCell>
-                      </TableRow>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+
+                  <div className="hidden md:block">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Filename</TableHead>
+                          <TableHead>Size</TableHead>
+                          <TableHead>Architecture</TableHead>
+                          <TableHead>SHA512</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {release.files.map((file) => (
+                          <TableRow key={file.id}>
+                            <TableCell className="font-medium">{file.filename}</TableCell>
+                            <TableCell>{formatBytes(file.size)}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{file.arch || 'N/A'}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <code className="text-xs">
+                                {file.sha512.substring(0, 16)}...
+                              </code>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteFile(file.id)}
+                              >
+                                Delete
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -491,7 +525,7 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
               <CardDescription>Download and rollout statistics</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
                   <p className="text-sm text-muted-foreground">Total Downloads</p>
                   <p className="text-2xl font-bold">

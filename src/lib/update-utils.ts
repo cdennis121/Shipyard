@@ -6,7 +6,7 @@ export function buildScopedDownloadPath(
   fileId: string,
   filename: string
 ): string {
-  return `download/${fileId}/${encodeURIComponent(filename)}`;
+  return `download/file/${fileId}/${encodeURIComponent(filename)}`;
 }
 
 export function extractApiKey(request: NextRequest): string | null {

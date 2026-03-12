@@ -175,7 +175,7 @@ export default function NewReleasePage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="version">Version *</Label>
                 <Input
@@ -209,7 +209,7 @@ export default function NewReleasePage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="channel">Channel *</Label>
                 <Select
@@ -260,7 +260,7 @@ export default function NewReleasePage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-0.5">
                 <Label htmlFor="isPublic">Public Release</Label>
                 <p className="text-xs text-muted-foreground">
@@ -274,7 +274,7 @@ export default function NewReleasePage() {
               />
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-0.5">
                 <Label htmlFor="published">Publish Immediately</Label>
                 <p className="text-xs text-muted-foreground">
@@ -288,15 +288,16 @@ export default function NewReleasePage() {
               />
             </div>
 
-            <div className="flex justify-end gap-4 pt-4">
+            <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row sm:justify-end">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => router.back()}
+                className="w-full sm:w-auto"
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                 {loading ? 'Creating...' : 'Create Release'}
               </Button>
             </div>

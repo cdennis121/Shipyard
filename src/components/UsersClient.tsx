@@ -114,7 +114,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>All Users</CardTitle>
             <CardDescription>
@@ -186,48 +186,91 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
         </div>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Username</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>API Keys</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        <>
+          <div className="space-y-3 md:hidden">
             {users.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell className="font-medium">
-                  {user.username}
-                  {user.id === currentUserId && (
-                    <Badge variant="secondary" className="ml-2">
-                      You
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">{user.role}</Badge>
-                </TableCell>
-                <TableCell>{user._count.apiKeys}</TableCell>
-                <TableCell>
-                  {new Date(user.createdAt).toLocaleDateString()}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDelete(user.id)}
-                    disabled={user.id === currentUserId}
-                  >
-                    Delete
-                  </Button>
-                </TableCell>
-              </TableRow>
+              <div key={user.id} className="rounded-lg border p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{user.username}</p>
+                      {user.id === currentUserId && <Badge variant="secondary">You</Badge>}
+                    </div>
+                    <Badge variant="outline" className="mt-2">{user.role}</Badge>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">API Keys</p>
+                    <p className="mt-1 font-medium">{user._count.apiKeys}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Created</p>
+                    <p className="mt-1 font-medium">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4 w-full"
+                  onClick={() => handleDelete(user.id)}
+                  disabled={user.id === currentUserId}
+                >
+                  Delete User
+                </Button>
+              </div>
             ))}
-          </TableBody>
-        </Table>
+          </div>
+
+          <div className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Username</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>API Keys</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell className="font-medium">
+                      {user.username}
+                      {user.id === currentUserId && (
+                        <Badge variant="secondary" className="ml-2">
+                          You
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{user.role}</Badge>
+                    </TableCell>
+                    <TableCell>{user._count.apiKeys}</TableCell>
+                    <TableCell>
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(user.id)}
+                        disabled={user.id === currentUserId}
+                      >
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       </CardContent>
     </Card>
   );
