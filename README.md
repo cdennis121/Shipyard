@@ -40,7 +40,7 @@
 - 🎨 **Modern UI** - Clean, responsive management dashboard
 
 <p align="center">
-  <img src="docs/screenshot-dashboard.jpg" alt="Dashboard Screenshot" width="800">
+  <img src="docs/screenshot-dashboard.png" alt="Dashboard Screenshot" width="800">
 </p>
 
 ## Quick Start
@@ -386,3 +386,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 <p align="center">
   Made with ❤️ for the Electron community
 </p>
+
