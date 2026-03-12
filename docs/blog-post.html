@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Introducing Shipyard - Self-Hosted Update Server for Electron Apps</title>
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #a855f7;
+            --bg-dark: #0f172a;
+            --bg-card: #1e293b;
+            --text: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --success: #22c55e;
+            --warning: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            line-height: 1.7;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: 4rem 2rem;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            border-radius: 1rem;
+            margin-bottom: 3rem;
+        }
+
+        .hero-logo {
+            width: 100px;
+            height: 100px;
+            background: white;
+            border-radius: 1.5rem;
+            margin: 0 auto 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            color: white;
+        }
+
+        .hero .tagline {
+            font-size: 1.25rem;
+            color: rgba(255,255,255,0.9);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        /* Meta info */
+        .meta {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .meta .author {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .meta .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+        }
+
+        /* Content */
+        h2 {
+            font-size: 1.75rem;
+            color: var(--text);
+            margin: 2.5rem 0 1rem;
+            padding-top: 1rem;
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            color: var(--text);
+            margin: 2rem 0 0.75rem;
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 1.25rem;
+        }
+
+        a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Screenshot placeholders */
+        .screenshot {
+            background: var(--bg-card);
+            border: 2px dashed var(--border);
+            border-radius: 0.75rem;
+            padding: 3rem 2rem;
+            text-align: center;
+            margin: 1.5rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .screenshot img {
+            max-width: 100%;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+        }
+
+        .screenshot-placeholder {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .screenshot-placeholder::before {
+            content: "📸";
+            display: block;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .screenshot figcaption {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 1rem;
+            font-style: italic;
+        }
+
+        /* Feature grid */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .feature {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+        }
+
+        .feature-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature h4 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            color: var(--text);
+        }
+
+        .feature p {
+            font-size: 0.85rem;
+            margin: 0;
+            color: var(--text-muted);
+        }
+
+        /* Code blocks */
+        pre {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 1rem 1.25rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+
+        code {
+            font-family: 'Fira Code', 'SF Mono', Consolas, monospace;
+            color: #e879f9;
+        }
+
+        pre code {
+            color: var(--text);
+        }
+
+        .code-comment {
+            color: var(--text-muted);
+        }
+
+        .code-string {
+            color: #86efac;
+        }
+
+        .code-keyword {
+            color: #c084fc;
+        }
+
+        /* Callout boxes */
+        .callout {
+            background: var(--bg-card);
+            border-left: 4px solid var(--primary);
+            border-radius: 0 0.5rem 0.5rem 0;
+            padding: 1rem 1.25rem;
+            margin: 1.5rem 0;
+        }
+
+        .callout.warning {
+            border-left-color: var(--warning);
+        }
+
+        .callout.success {
+            border-left-color: var(--success);
+        }
+
+        .callout-title {
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* List styles */
+        ul, ol {
+            color: var(--text-muted);
+            margin: 1rem 0 1.5rem 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--bg-card);
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        td {
+            color: var(--text-muted);
+        }
+
+        /* CTA Section */
+        .cta {
+            background: linear-gradient(135deg, var(--bg-card) 0%, rgba(99, 102, 241, 0.1) 100%);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 2.5rem;
+            text-align: center;
+            margin: 3rem 0;
+        }
+
+        .cta h3 {
+            color: var(--text);
+            margin-bottom: 1rem;
+        }
+
+        .cta p {
+            margin-bottom: 1.5rem;
+        }
+
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 0.75rem 2rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+            text-decoration: none;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 0.25rem 0.75rem;
+            border-radius: 2rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-right: 0.5rem;
+        }
+
+        .badge.primary {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Tech stack */
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+
+        .tech-badge {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        @media (max-width: 600px) {
+            .hero h1 {
+                font-size: 2rem;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+            
+            .meta {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <article class="container">
+        <!-- Hero Section -->
+        <header class="hero">
+            <div class="hero-logo">🚀</div>
+            <h1>Introducing Shipyard</h1>
+            <p class="tagline">A self-hosted update server for Electron applications that puts you in control</p>
+        </header>
+
+        <!-- Meta -->
+        <div class="meta">
+            <div class="author">
+                <div class="avatar"></div>
+                <span>Shipyard Team</span>
+            </div>
+            <span>•</span>
+            <span>November 26, 2025</span>
+            <span>•</span>
+            <span>8 min read</span>
+        </div>
+
+        <!-- Introduction -->
+        <p>
+            If you've ever built an Electron application, you know the challenge: <strong>how do you deliver updates to your users?</strong> 
+            Services like GitHub Releases work for open-source projects, but what if you need private releases, staged rollouts, 
+            or simply want to keep control of your update infrastructure?
+        </p>
+
+        <p>
+            Meet <strong>Shipyard</strong> — a modern, self-hosted update server built specifically for Electron applications. 
+            It's free, open-source, and designed to give you complete control over your update pipeline.
+        </p>
+
+        <!-- Screenshot: Dashboard Overview -->
+        <figure class="screenshot">
+            <!-- Replace this placeholder with your actual screenshot -->
+            <!-- <img src="screenshot-dashboard.png" alt="Shipyard Dashboard"> -->
+            <div class="screenshot-placeholder">
+                Add screenshot: Dashboard Overview<br>
+                <small>Show the main dashboard with stats cards and recent activity</small>
+            </div>
+            <figcaption>The Shipyard dashboard provides a quick overview of your apps, releases, and download statistics</figcaption>
+        </figure>
+
+        <h2>Why We Built Shipyard</h2>
+
+        <p>
+            When developing Electron apps for enterprise clients, we ran into a common problem: existing update solutions 
+            either required sending our binaries to third-party servers, lacked features like staged rollouts, or were 
+            prohibitively expensive at scale.
+        </p>
+
+        <p>
+            We wanted something that was:
+        </p>
+
+        <ul>
+            <li><strong>Self-hosted</strong> — Your binaries, your servers, your control</li>
+            <li><strong>Simple to deploy</strong> — One <code>docker compose up</code> and you're running</li>
+            <li><strong>Feature-rich</strong> — Staged rollouts, multiple channels, private releases</li>
+            <li><strong>Compatible</strong> — Works with electron-builder and electron-updater out of the box</li>
+        </ul>
+
+        <h2>Key Features</h2>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">📦</div>
+                <h4>Multi-App Support</h4>
+                <p>Manage updates for all your Electron apps from a single dashboard</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🎯</div>
+                <h4>Staged Rollouts</h4>
+                <p>Gradually release updates to 10%, 50%, or any percentage of users</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📡</div>
+                <h4>Release Channels</h4>
+                <p>Support for latest, beta, and alpha channels per app</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🔐</div>
+                <h4>Private Releases</h4>
+                <p>Protect releases with API keys for internal or paid distributions</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💻</div>
+                <h4>Multi-Platform</h4>
+                <p>Full support for Windows, macOS, and Linux builds</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">📊</div>
+                <h4>Analytics</h4>
+                <p>Track downloads and monitor rollout progress in real-time</p>
+            </div>
+        </div>
+
+        <!-- Screenshot: Releases Page -->
+        <figure class="screenshot">
+            <!-- <img src="screenshot-releases.png" alt="Releases Management"> -->
+            <div class="screenshot-placeholder">
+                Add screenshot: Releases Page<br>
+                <small>Show the releases list with version numbers, channels, and rollout status</small>
+            </div>
+            <figcaption>Manage all your releases with version tracking, channel selection, and rollout controls</figcaption>
+        </figure>
+
+        <h2>How It Works</h2>
+
+        <p>
+            Shipyard integrates seamlessly with <code>electron-updater</code>, the standard update library for Electron apps. 
+            Here's how the flow works:
+        </p>
+
+        <h3>1. Configure Your Electron App</h3>
+
+        <p>Point your app to your Shipyard server in <code>electron-builder</code> config:</p>
+
+<pre><code><span class="code-comment">// electron-builder.json</span>
+{
+  <span class="code-string">"publish"</span>: {
+    <span class="code-string">"provider"</span>: <span class="code-string">"generic"</span>,
+    <span class="code-string">"url"</span>: <span class="code-string">"https://updates.yourcompany.com/updates/your-app"</span>
+  }
+}</code></pre>
+
+        <h3>2. Upload Releases via Dashboard</h3>
+
+        <p>
+            Build your app as usual, then upload the artifacts through Shipyard's web interface. 
+            You can set the release channel, rollout percentage, and whether the release requires an API key.
+        </p>
+
+        <!-- Screenshot: New Release Form -->
+        <figure class="screenshot">
+            <!-- <img src="screenshot-new-release.png" alt="Creating a New Release"> -->
+            <div class="screenshot-placeholder">
+                Add screenshot: New Release Form<br>
+                <small>Show the release creation form with file upload and settings</small>
+            </div>
+            <figcaption>Creating a new release is as simple as uploading your files and setting a few options</figcaption>
+        </figure>
+
+        <h3>3. Your App Checks for Updates</h3>
+
+        <p>Standard <code>electron-updater</code> code works out of the box:</p>
+
+<pre><code><span class="code-keyword">import</span> { autoUpdater } <span class="code-keyword">from</span> <span class="code-string">'electron-updater'</span>;
+
+<span class="code-comment">// Check for updates on app start</span>
+autoUpdater.checkForUpdatesAndNotify();
+
+<span class="code-comment">// Handle update events</span>
+autoUpdater.on(<span class="code-string">'update-available'</span>, (info) => {
+  console.log(<span class="code-string">'Update available:'</span>, info.version);
+});
+
+autoUpdater.on(<span class="code-string">'update-downloaded'</span>, () => {
+  autoUpdater.quitAndInstall();
+});</code></pre>
+
+        <div class="callout success">
+            <div class="callout-title">✅ Zero Code Changes Required</div>
+            <p>If you're already using electron-updater, switching to Shipyard requires only a URL change in your config!</p>
+        </div>
+
+        <h2>Staged Rollouts: Ship with Confidence</h2>
+
+        <p>
+            One of Shipyard's most powerful features is <strong>staged rollouts</strong>. Instead of pushing an update 
+            to 100% of users immediately, you can gradually increase the rollout percentage while monitoring for issues.
+        </p>
+
+        <!-- Screenshot: Rollout Controls -->
+        <figure class="screenshot">
+            <!-- <img src="screenshot-rollout.png" alt="Staged Rollout Controls"> -->
+            <div class="screenshot-placeholder">
+                Add screenshot: Rollout Slider<br>
+                <small>Show the rollout percentage slider in release settings</small>
+            </div>
+            <figcaption>Gradually roll out updates to control risk and catch issues early</figcaption>
+        </figure>
+
+        <p>A typical rollout strategy might look like:</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Day</th>
+                    <th>Rollout %</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Day 1</td>
+                    <td>5%</td>
+                    <td>Initial canary release to catch critical bugs</td>
+                </tr>
+                <tr>
+                    <td>Day 2</td>
+                    <td>25%</td>
+                    <td>Expand if no issues reported</td>
+                </tr>
+                <tr>
+                    <td>Day 3</td>
+                    <td>50%</td>
+                    <td>Half your user base</td>
+                </tr>
+                <tr>
+                    <td>Day 5</td>
+                    <td>100%</td>
+                    <td>Full release</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h2>Private Releases with API Keys</h2>
+
+        <p>
+            Need to distribute your app to paying customers or internal teams? Shipyard supports <strong>API key authentication</strong> 
+            for releases. Users without a valid key simply won't see the update.
+        </p>
+
+<pre><code><span class="code-comment">// In your Electron app</span>
+autoUpdater.requestHeaders = {
+  <span class="code-string">'X-API-Key'</span>: process.env.UPDATE_API_KEY
+};
+
+autoUpdater.checkForUpdatesAndNotify();</code></pre>
+
+        <div class="callout warning">
+            <div class="callout-title">⚠️ Security Note</div>
+            <p>Never hardcode API keys in your app. Use environment variables or secure storage like <code>electron-store</code> with encryption.</p>
+        </div>
+
+        <!-- Screenshot: API Keys Management -->
+        <figure class="screenshot">
+            <!-- <img src="screenshot-api-keys.png" alt="API Key Management"> -->
+            <div class="screenshot-placeholder">
+                Add screenshot: API Keys Page<br>
+                <small>Show the API key management interface with key list</small>
+            </div>
+            <figcaption>Generate and manage API keys for each app directly from the dashboard</figcaption>
+        </figure>
+
+        <h2>Tech Stack</h2>
+
+        <p>Shipyard is built with modern, battle-tested technologies:</p>
+
+        <div class="tech-stack">
+            <div class="tech-badge">⚡ Next.js 15</div>
+            <div class="tech-badge">📘 TypeScript</div>
+            <div class="tech-badge">🐘 PostgreSQL</div>
+            <div class="tech-badge">🗄️ Prisma ORM</div>
+            <div class="tech-badge">☁️ S3/MinIO</div>
+            <div class="tech-badge">🔐 NextAuth.js</div>
+            <div class="tech-badge">🎨 Tailwind CSS</div>
+            <div class="tech-badge">🐳 Docker</div>
+        </div>
+
+        <p>
+            The entire stack runs in Docker containers, making deployment and scaling straightforward. 
+            File storage uses S3-compatible storage, so you can use MinIO (included), AWS S3, Cloudflare R2, 
+            or any other compatible service.
+        </p>
+
+        <h2>Getting Started</h2>
+
+        <p>Deploying Shipyard takes just a few minutes:</p>
+
+<pre><code><span class="code-comment"># Clone the repository</span>
+git clone https://github.com/LunarForge/Shipyard.git
+cd Shipyard
+
+<span class="code-comment"># Configure your environment</span>
+cp .env.example .env
+<span class="code-comment"># Edit .env with your secure passwords</span>
+
+<span class="code-comment"># Start the services</span>
+docker compose up -d
+
+<span class="code-comment"># Open http://localhost:3000</span></code></pre>
+
+        <div class="callout">
+            <div class="callout-title">💡 Production Tip</div>
+            <p>For production deployments, make sure to set strong passwords, use HTTPS with a reverse proxy, and consider using an external S3 service for better reliability.</p>
+        </div>
+
+        <h2>What's Next?</h2>
+
+        <p>We're actively developing Shipyard and have exciting features planned:</p>
+
+        <ul>
+            <li><strong>REST API</strong> — Automate releases from your CI/CD pipeline</li>
+            <li><strong>Delta Updates</strong> — Smaller, faster updates with binary diffing</li>
+            <li><strong>Webhooks</strong> — Get notified when updates are downloaded</li>
+            <li><strong>Team Management</strong> — Role-based access control for organizations</li>
+            <li><strong>Update Analytics</strong> — Detailed insights into update adoption</li>
+        </ul>
+
+        <!-- CTA Section -->
+        <div class="cta">
+            <h3>Ready to Take Control of Your Updates?</h3>
+            <p>Shipyard is free, open-source, and ready for production. Give it a try!</p>
+            <a href="https://github.com/LunarForge/Shipyard" class="btn">View on GitHub →</a>
+        </div>
+
+        <h2>Contributing</h2>
+
+        <p>
+            Shipyard is open-source under the MIT license. We welcome contributions of all kinds — 
+            whether it's bug reports, feature requests, documentation improvements, or code contributions.
+        </p>
+
+        <p>
+            Check out our <a href="https://github.com/LunarForge/Shipyard/blob/main/CONTRIBUTING.md">Contributing Guide</a> 
+            to get started, or join the discussion in <a href="https://github.com/LunarForge/Shipyard/discussions">GitHub Discussions</a>.
+        </p>
+
+        <p style="margin-top: 2rem; text-align: center;">
+            <span class="badge primary">Open Source</span>
+            <span class="badge">MIT License</span>
+            <span class="badge">Self-Hosted</span>
+            <span class="badge">Docker Ready</span>
+        </p>
+    </article>
+
+    <footer class="footer">
+        <p>Made with ❤️ for the Electron community</p>
+        <p style="margin-top: 0.5rem;">
+            <a href="https://github.com/LunarForge/Shipyard">GitHub</a> · 
+            <a href="https://github.com/LunarForge/Shipyard/blob/main/LICENSE">License</a> · 
+            <a href="https://github.com/LunarForge/Shipyard/blob/main/SECURITY.md">Security</a>
+        </p>
+    </footer>
+</body>
+</html>
