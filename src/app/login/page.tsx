@@ -37,14 +37,23 @@ function LoginForm() {
       const result = await signIn('credentials', {
         username,
         password,
+        callbackUrl,
         redirect: false,
       });
 
       if (result?.error) {
         setError('Invalid username or password');
+      } else if (result?.url) {
+        const redirectUrl = new URL(result.url, window.location.origin);
+
+        if (redirectUrl.origin === window.location.origin) {
+          router.replace(`${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`);
+          router.refresh();
+        } else {
+          window.location.href = redirectUrl.toString();
+        }
       } else {
-        router.push(callbackUrl);
-        router.refresh();
+        setError('Sign in did not complete. Please try again.');
       }
     } catch {
       setError('An error occurred. Please try again.');

@@ -23,6 +23,9 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { readErrorMessage } from '@/lib/http';
 
 interface ApiKey {
   id: string;
@@ -47,6 +50,8 @@ export function ApiKeyManager({ releaseId, apiKeys, onUpdate }: ApiKeyManagerPro
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [newKey, setNewKey] = useState<string | null>(null);
+  const [keyToDelete, setKeyToDelete] = useState<ApiKey | null>(null);
+  const [deletingKeyId, setDeletingKeyId] = useState<string | null>(null);
 
   const handleCreate = async () => {
     if (!name) return;
@@ -65,7 +70,7 @@ export function ApiKeyManager({ releaseId, apiKeys, onUpdate }: ApiKeyManagerPro
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create API key');
+        throw new Error(await readErrorMessage(response, 'Failed to create API key'));
       }
 
       const data = await response.json();
@@ -73,6 +78,7 @@ export function ApiKeyManager({ releaseId, apiKeys, onUpdate }: ApiKeyManagerPro
       setName('');
       setExpiresInDays('');
       onUpdate();
+      toast.success('API key created');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -80,30 +86,60 @@ export function ApiKeyManager({ releaseId, apiKeys, onUpdate }: ApiKeyManagerPro
     }
   };
 
-  const handleDelete = async (keyId: string) => {
-    if (!confirm('Are you sure you want to revoke this API key?')) return;
+  const handleDelete = async () => {
+    if (!keyToDelete) return;
+
+    setDeletingKeyId(keyToDelete.id);
 
     try {
-      const response = await fetch(`/api/keys/${keyId}`, {
+      const response = await fetch(`/api/keys/${keyToDelete.id}`, {
         method: 'DELETE',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete API key');
+        throw new Error(await readErrorMessage(response, 'Failed to revoke API key'));
       }
 
       onUpdate();
+      toast.success(`Revoked ${keyToDelete.name}`);
+      setKeyToDelete(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'An error occurred');
+      toast.error(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setDeletingKeyId(null);
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('API key copied');
+    } catch {
+      toast.error('Failed to copy API key');
+    }
   };
 
   return (
     <Card>
+      <ConfirmDialog
+        open={!!keyToDelete}
+        onOpenChange={(open) => {
+          if (!open) {
+            setKeyToDelete(null);
+          }
+        }}
+        title="Revoke API key"
+        description={
+          keyToDelete
+            ? `Revoke "${keyToDelete.name}"? Any client using this release key will lose access immediately.`
+            : 'Revoke this API key?'
+        }
+        confirmLabel="Revoke key"
+        pendingLabel="Revoking..."
+        onConfirm={handleDelete}
+        isPending={deletingKeyId === keyToDelete?.id}
+      />
+
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
@@ -240,7 +276,7 @@ export function ApiKeyManager({ releaseId, apiKeys, onUpdate }: ApiKeyManagerPro
                       variant="outline"
                       size="sm"
                       className="mt-4 w-full"
-                      onClick={() => handleDelete(key.id)}
+                      onClick={() => setKeyToDelete(key)}
                     >
                       Revoke
                     </Button>
@@ -283,7 +319,7 @@ export function ApiKeyManager({ releaseId, apiKeys, onUpdate }: ApiKeyManagerPro
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(key.id)}
+                            onClick={() => setKeyToDelete(key)}
                           >
                             Revoke
                           </Button>

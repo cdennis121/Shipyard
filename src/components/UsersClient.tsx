@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useDeferredValue, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Search, ArrowUpDown, X } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -31,6 +32,9 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { readErrorMessage } from '@/lib/http';
 
 interface User {
   id: string;
@@ -53,12 +57,18 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('recent');
 
   const [formData, setFormData] = useState({
     username: '',
     password: '',
     role: 'admin',
   });
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   const handleCreate = async () => {
     if (!formData.username || !formData.password) return;
@@ -80,6 +90,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
 
       setFormData({ username: '', password: '', role: 'admin' });
       setOpen(false);
+      toast.success(`Created ${formData.username}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -88,31 +99,99 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
     }
   };
 
-  const handleDelete = async (userId: string) => {
-    if (userId === currentUserId) {
-      alert('You cannot delete your own account');
+  const requestDelete = (user: User) => {
+    if (user.id === currentUserId) {
+      toast.error('You cannot delete your own account');
       return;
     }
 
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    setUserToDelete(user);
+  };
+
+  const handleDelete = async () => {
+    if (!userToDelete) return;
+
+    setDeletingUserId(userToDelete.id);
 
     try {
-      const response = await fetch(`/api/users/${userId}`, {
+      const response = await fetch(`/api/users/${userToDelete.id}`, {
         method: 'DELETE',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete user');
+        throw new Error(await readErrorMessage(response, 'Failed to delete user'));
       }
 
-      setUsers(users.filter((u) => u.id !== userId));
+      setUsers((currentUsers) => currentUsers.filter((user) => user.id !== userToDelete.id));
+      toast.success(`Deleted ${userToDelete.username}`);
+      setUserToDelete(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'An error occurred');
+      toast.error(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setDeletingUserId(null);
     }
+  };
+
+  const normalizedSearch = deferredSearchQuery.trim().toLowerCase();
+  const visibleUsers = [...users]
+    .filter((user) => {
+      if (roleFilter !== 'all' && user.role !== roleFilter) return false;
+      if (!normalizedSearch) return true;
+
+      return [user.username, user.role]
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedSearch);
+    })
+    .sort((left, right) => {
+      switch (sortBy) {
+        case 'oldest':
+          return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+        case 'username':
+          return left.username.localeCompare(right.username, undefined, { sensitivity: 'base' });
+        case 'api-keys':
+          return (
+            right._count.apiKeys - left._count.apiKeys ||
+            left.username.localeCompare(right.username, undefined, { sensitivity: 'base' })
+          );
+        default:
+          return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+      }
+    });
+  const hasViewFilters =
+    normalizedSearch.length > 0 || roleFilter !== 'all' || sortBy !== 'recent';
+  const resultLabel =
+    visibleUsers.length === users.length
+      ? `${users.length} user${users.length !== 1 ? 's' : ''}`
+      : `Showing ${visibleUsers.length} of ${users.length} users`;
+
+  const resetViewFilters = () => {
+    setSearchQuery('');
+    setRoleFilter('all');
+    setSortBy('recent');
   };
 
   return (
     <Card>
+      <ConfirmDialog
+        open={!!userToDelete}
+        onOpenChange={(open) => {
+          if (!open) {
+            setUserToDelete(null);
+          }
+        }}
+        title="Delete user"
+        description={
+          userToDelete
+            ? `Delete "${userToDelete.username}"? Their API keys and ownership links will be removed.`
+            : 'Delete this user?'
+        }
+        confirmLabel="Delete user"
+        pendingLabel="Deleting..."
+        onConfirm={handleDelete}
+        isPending={deletingUserId === userToDelete?.id}
+      />
+
       <CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -186,9 +265,78 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
         </div>
       </CardHeader>
       <CardContent>
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end">
+          <div className="flex-1 space-y-2">
+            <Label htmlFor="user-search">Search users</Label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="user-search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search by username or role"
+                className="pl-9"
+              />
+            </div>
+          </div>
+          <div className="space-y-2 lg:w-48">
+            <Label>Role</Label>
+            <Select value={roleFilter} onValueChange={setRoleFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Filter by role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All roles</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="viewer">Viewer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2 lg:w-56">
+            <Label>Sort by</Label>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Sort users" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recent">Newest first</SelectItem>
+                <SelectItem value="oldest">Oldest first</SelectItem>
+                <SelectItem value="username">Username (A-Z)</SelectItem>
+                <SelectItem value="api-keys">Most API keys</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2 lg:pb-0.5">
+            {hasViewFilters && (
+              <Button variant="outline" onClick={resetViewFilters} className="w-full lg:w-auto">
+                <X className="h-4 w-4" />
+                Clear
+              </Button>
+            )}
+            <div className="hidden rounded-md border px-3 py-2 text-sm text-muted-foreground lg:flex lg:items-center lg:gap-2">
+              <ArrowUpDown className="h-4 w-4" />
+              {resultLabel}
+            </div>
+          </div>
+          <p className="text-sm text-muted-foreground lg:hidden">{resultLabel}</p>
+        </div>
+
+        {visibleUsers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Search className="mb-4 h-12 w-12 text-muted-foreground/50" />
+            <h3 className="text-lg font-medium">No users match your filters</h3>
+            <p className="mt-1 max-w-sm text-muted-foreground">
+              Try a broader search or clear the current role and sort settings.
+            </p>
+            <Button variant="outline" className="mt-4 gap-2" onClick={resetViewFilters}>
+              <X className="h-4 w-4" />
+              Clear Filters
+            </Button>
+          </div>
+        ) : (
         <>
           <div className="space-y-3 md:hidden">
-            {users.map((user) => (
+            {visibleUsers.map((user) => (
               <div key={user.id} className="rounded-lg border p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -217,7 +365,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
                   variant="outline"
                   size="sm"
                   className="mt-4 w-full"
-                  onClick={() => handleDelete(user.id)}
+                  onClick={() => requestDelete(user)}
                   disabled={user.id === currentUserId}
                 >
                   Delete User
@@ -238,7 +386,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => (
+                {visibleUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">
                       {user.username}
@@ -259,7 +407,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(user.id)}
+                        onClick={() => requestDelete(user)}
                         disabled={user.id === currentUserId}
                       >
                         Delete
@@ -271,6 +419,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
             </Table>
           </div>
         </>
+        )}
       </CardContent>
     </Card>
   );

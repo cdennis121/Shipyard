@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Clock,
   Plus,
+  Key,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +67,41 @@ async function getRecentReleases() {
 export default async function DashboardPage() {
   const stats = await getStats();
   const recentReleases = await getRecentReleases();
+  const draftReleases = stats.totalReleases - stats.publishedReleases;
+  const nextSteps = [
+    {
+      title: stats.totalApps === 0 ? 'Create your first app' : 'Manage your apps',
+      description:
+        stats.totalApps === 0
+          ? 'Set up the application record before you upload releases.'
+          : `${stats.totalApps} app${stats.totalApps !== 1 ? 's' : ''} connected to Shipyard.`,
+      href: '/dashboard/apps',
+      actionLabel: stats.totalApps === 0 ? 'Create app' : 'View apps',
+      icon: AppWindow,
+    },
+    {
+      title: stats.totalReleases === 0 ? 'Publish your first release' : draftReleases > 0 ? 'Finish your draft releases' : 'Review release history',
+      description:
+        stats.totalReleases === 0
+          ? 'Upload files and publish a release so clients can start updating.'
+          : draftReleases > 0
+            ? `${draftReleases} draft release${draftReleases !== 1 ? 's' : ''} still need attention.`
+            : `${stats.publishedReleases} published release${stats.publishedReleases !== 1 ? 's' : ''} live for your users.`,
+      href: stats.totalReleases === 0 ? '/dashboard/releases/new' : '/dashboard/releases',
+      actionLabel: stats.totalReleases === 0 ? 'Create release' : 'Review releases',
+      icon: Package,
+    },
+    {
+      title: stats.totalApiKeys === 0 ? 'Set up access keys' : 'Review download access',
+      description:
+        stats.totalApiKeys === 0
+          ? 'Generate API keys for private releases and CI distribution.'
+          : `${stats.totalApiKeys} API key${stats.totalApiKeys !== 1 ? 's' : ''} currently active across your apps.`,
+      href: '/dashboard/api-keys',
+      actionLabel: stats.totalApiKeys === 0 ? 'Create key' : 'View keys',
+      icon: Key,
+    },
+  ];
 
   return (
     <div className="space-y-8">
@@ -82,6 +118,34 @@ export default async function DashboardPage() {
             New App
           </Button>
         </Link>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        {nextSteps.map((step) => {
+          const StepIcon = step.icon;
+
+          return (
+            <Card key={step.title} className="border-dashed">
+              <CardHeader className="space-y-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
+                  <StepIcon className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">{step.title}</CardTitle>
+                  <CardDescription className="mt-1">{step.description}</CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Link href={step.href}>
+                  <Button variant="outline" className="w-full justify-between">
+                    {step.actionLabel}
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Stats Cards */}

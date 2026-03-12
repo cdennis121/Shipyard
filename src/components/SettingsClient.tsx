@@ -5,9 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export function SettingsClient() {
   const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupConfirmOpen, setCleanupConfirmOpen] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<{
     message: string;
     orphanedFiles: string[];
@@ -33,24 +36,24 @@ export function SettingsClient() {
         deletedFiles: [],
         errors: [],
       });
+      toast.success(`Found ${data.count} orphaned file${data.count === 1 ? '' : 's'}`);
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
       setCleanupResult({
-        message: err instanceof Error ? err.message : 'An error occurred',
+        message,
         orphanedFiles: [],
         deletedFiles: [],
-        errors: [err instanceof Error ? err.message : 'Unknown error'],
+        errors: [message],
       });
+      toast.error(message);
     } finally {
       setCleanupLoading(false);
     }
   };
 
   const handleRunCleanup = async () => {
-    if (!confirm('Are you sure you want to delete all orphaned files? This cannot be undone.')) {
-      return;
-    }
-
     setCleanupLoading(true);
+    setCleanupConfirmOpen(false);
 
     try {
       const response = await fetch('/api/cleanup', {
@@ -71,13 +74,21 @@ export function SettingsClient() {
         deletedFiles: data.deletedFiles,
         errors: data.errors,
       });
+
+      if (data.errors.length > 0) {
+        toast.warning(data.message);
+      } else {
+        toast.success(data.message);
+      }
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
       setCleanupResult({
-        message: err instanceof Error ? err.message : 'An error occurred',
+        message,
         orphanedFiles: [],
         deletedFiles: [],
-        errors: [err instanceof Error ? err.message : 'Unknown error'],
+        errors: [message],
       });
+      toast.error(message);
     } finally {
       setCleanupLoading(false);
     }
@@ -85,6 +96,17 @@ export function SettingsClient() {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog
+        open={cleanupConfirmOpen}
+        onOpenChange={setCleanupConfirmOpen}
+        title="Run storage cleanup"
+        description="Delete all orphaned files from storage? This action cannot be undone."
+        confirmLabel="Run cleanup"
+        pendingLabel="Running..."
+        onConfirm={handleRunCleanup}
+        isPending={cleanupLoading}
+      />
+
       <Card>
         <CardHeader>
           <CardTitle>Storage Cleanup</CardTitle>
@@ -103,7 +125,7 @@ export function SettingsClient() {
             </Button>
             <Button
               variant="destructive"
-              onClick={handleRunCleanup}
+              onClick={() => setCleanupConfirmOpen(true)}
               disabled={cleanupLoading}
             >
               {cleanupLoading ? 'Running...' : 'Run Cleanup'}

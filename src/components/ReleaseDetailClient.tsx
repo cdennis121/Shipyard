@@ -32,19 +32,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileUpload } from '@/components/FileUpload';
 import { ApiKeyManager } from '@/components/ApiKeyManager';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { readErrorMessage } from '@/lib/http';
 
 interface ReleaseFile {
   id: string;
@@ -102,6 +96,9 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState<ReleaseFile | null>(null);
+  const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
+  const [deletingRelease, setDeletingRelease] = useState(false);
 
   const [formData, setFormData] = useState({
     version: '',
@@ -164,11 +161,11 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to save');
+        throw new Error(await readErrorMessage(response, 'Failed to save'));
       }
 
       await fetchRelease();
+      toast.success('Release updated');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -177,36 +174,49 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
   };
 
   const handleDelete = async () => {
+    setDeletingRelease(true);
+
     try {
       const response = await fetch(`/api/releases/${releaseId}`, {
         method: 'DELETE',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete release');
+        throw new Error(await readErrorMessage(response, 'Failed to delete release'));
       }
 
+      toast.success('Release deleted');
       router.push('/dashboard/releases');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      setError(message);
+      toast.error(message);
+    } finally {
+      setDeletingRelease(false);
     }
   };
 
-  const handleDeleteFile = async (fileId: string) => {
-    if (!confirm('Are you sure you want to delete this file?')) return;
+  const handleDeleteFile = async () => {
+    if (!fileToDelete) return;
+
+    setDeletingFileId(fileToDelete.id);
 
     try {
-      const response = await fetch(`/api/releases/${releaseId}/files/${fileId}`, {
+      const response = await fetch(`/api/releases/${releaseId}/files/${fileToDelete.id}`, {
         method: 'DELETE',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete file');
+        throw new Error(await readErrorMessage(response, 'Failed to delete file'));
       }
 
       await fetchRelease();
+      toast.success(`Deleted ${fileToDelete.filename}`);
+      setFileToDelete(null);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'An error occurred');
+      toast.error(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setDeletingFileId(null);
     }
   };
 
@@ -236,6 +246,36 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete release"
+        description="Delete this release? This action cannot be undone and all associated files will be removed."
+        confirmLabel="Delete release"
+        pendingLabel="Deleting..."
+        onConfirm={handleDelete}
+        isPending={deletingRelease}
+      />
+
+      <ConfirmDialog
+        open={!!fileToDelete}
+        onOpenChange={(open) => {
+          if (!open) {
+            setFileToDelete(null);
+          }
+        }}
+        title="Delete file"
+        description={
+          fileToDelete
+            ? `Delete "${fileToDelete.filename}" from this release?`
+            : 'Delete this file?'
+        }
+        confirmLabel="Delete file"
+        pendingLabel="Deleting..."
+        onConfirm={handleDeleteFile}
+        isPending={deletingFileId === fileToDelete?.id}
+      />
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-sm text-muted-foreground">{release.app.name}</p>
@@ -254,28 +294,9 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
           <Button variant="outline" onClick={() => router.back()}>
             Back
           </Button>
-          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="destructive">Delete</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Delete Release</DialogTitle>
-                <DialogDescription>
-                  Are you sure you want to delete this release? This action cannot be undone
-                  and will delete all associated files.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button variant="destructive" onClick={handleDelete}>
-                  Delete
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
+            Delete
+          </Button>
         </div>
       </div>
 
@@ -457,7 +478,7 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
                             variant="outline"
                             size="sm"
                             className="w-full"
-                            onClick={() => handleDeleteFile(file.id)}
+                            onClick={() => setFileToDelete(file)}
                           >
                             Delete File
                           </Button>
@@ -494,7 +515,7 @@ export function ReleaseDetailClient({ releaseId }: ReleaseDetailClientProps) {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleDeleteFile(file.id)}
+                                onClick={() => setFileToDelete(file)}
                               >
                                 Delete
                               </Button>

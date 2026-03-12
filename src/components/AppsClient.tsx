@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useDeferredValue, useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   AppWindow,
@@ -11,6 +11,9 @@ import {
   Download,
   Copy,
   Check,
+  Search,
+  ArrowUpDown,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +27,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -33,6 +43,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { readErrorMessage } from '@/lib/http';
 
 interface App {
   id: string;
@@ -55,14 +68,19 @@ export function AppsClient() {
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editingApp, setEditingApp] = useState<App | null>(null);
+  const [appToDelete, setAppToDelete] = useState<App | null>(null);
   const [error, setError] = useState('');
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+  const [deletingAppId, setDeletingAppId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('recent');
 
   // Form state
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   useEffect(() => {
     fetchApps();
@@ -104,6 +122,7 @@ export function AppsClient() {
 
     setSaving(true);
     setError('');
+    const appName = name;
 
     try {
       const response = await fetch('/api/apps', {
@@ -120,6 +139,7 @@ export function AppsClient() {
       await fetchApps();
       resetForm();
       setCreateDialogOpen(false);
+      toast.success(`Created ${appName}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -135,6 +155,7 @@ export function AppsClient() {
 
     setSaving(true);
     setError('');
+    const appName = name;
 
     try {
       const response = await fetch(`/api/apps/${editingApp.id}`, {
@@ -150,6 +171,7 @@ export function AppsClient() {
       await fetchApps();
       resetForm();
       setEditingApp(null);
+      toast.success(`Updated ${appName}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -157,24 +179,28 @@ export function AppsClient() {
     }
   };
 
-  const handleDelete = async (appId: string, appName: string) => {
-    if (!confirm(`Are you sure you want to delete "${appName}"? This will delete all releases and data associated with this app.`)) {
-      return;
-    }
+  const handleDelete = async () => {
+    if (!appToDelete) return;
+
+    setDeletingAppId(appToDelete.id);
 
     try {
-      const response = await fetch(`/api/apps/${appId}`, {
+      const response = await fetch(`/api/apps/${appToDelete.id}`, {
         method: 'DELETE',
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete app');
+        throw new Error(await readErrorMessage(response, 'Failed to delete app'));
       }
 
       await fetchApps();
+      toast.success(`Deleted ${appToDelete.name}`);
+      setAppToDelete(null);
     } catch (error) {
       console.error('Failed to delete app:', error);
-      alert('Failed to delete app');
+      toast.error(error instanceof Error ? error.message : 'Failed to delete app');
+    } finally {
+      setDeletingAppId(null);
     }
   };
 
@@ -194,11 +220,62 @@ export function AppsClient() {
   };
 
   const copyUpdateUrl = async (appSlug: string) => {
-    const baseUrl = window.location.origin;
-    const url = `${baseUrl}/updates/${appSlug}/latest.yml`;
-    await navigator.clipboard.writeText(url);
-    setCopiedSlug(appSlug);
-    setTimeout(() => setCopiedSlug(null), 2000);
+    try {
+      const baseUrl = window.location.origin;
+      const url = `${baseUrl}/updates/${appSlug}/latest.yml`;
+      await navigator.clipboard.writeText(url);
+      setCopiedSlug(appSlug);
+      setTimeout(() => setCopiedSlug(null), 2000);
+      toast.success('Update URL copied');
+    } catch {
+      toast.error('Failed to copy update URL');
+    }
+  };
+
+  const normalizedSearch = deferredSearchQuery.trim().toLowerCase();
+  const visibleApps = [...apps]
+    .filter((app) => {
+      if (!normalizedSearch) return true;
+
+      return [
+        app.name,
+        app.slug,
+        app.description || '',
+        app.createdBy.username,
+      ]
+        .join(' ')
+        .toLowerCase()
+        .includes(normalizedSearch);
+    })
+    .sort((left, right) => {
+      switch (sortBy) {
+        case 'name':
+          return left.name.localeCompare(right.name, undefined, { sensitivity: 'base' });
+        case 'releases':
+          return (
+            right._count.releases - left._count.releases ||
+            left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
+          );
+        case 'downloads':
+          return (
+            right._count.downloadStats - left._count.downloadStats ||
+            left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
+          );
+        case 'oldest':
+          return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+        default:
+          return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+      }
+    });
+  const hasViewFilters = normalizedSearch.length > 0 || sortBy !== 'recent';
+  const resultLabel =
+    visibleApps.length === apps.length
+      ? `${apps.length} app${apps.length !== 1 ? 's' : ''}`
+      : `Showing ${visibleApps.length} of ${apps.length} apps`;
+
+  const resetViewFilters = () => {
+    setSearchQuery('');
+    setSortBy('recent');
   };
 
   if (loading) {
@@ -362,6 +439,73 @@ export function AppsClient() {
         </DialogContent>
       </Dialog>
 
+      <ConfirmDialog
+        open={!!appToDelete}
+        onOpenChange={(open) => {
+          if (!open) {
+            setAppToDelete(null);
+          }
+        }}
+        title="Delete app"
+        description={
+          appToDelete
+            ? `Delete "${appToDelete.name}"? This will remove all releases, files, and download data for this app.`
+            : 'Delete this app?'
+        }
+        confirmLabel="Delete app"
+        pendingLabel="Deleting..."
+        onConfirm={handleDelete}
+        isPending={deletingAppId === appToDelete?.id}
+      />
+
+      {apps.length > 0 && (
+        <Card>
+          <CardContent className="flex flex-col gap-4 pt-6 lg:flex-row lg:items-end">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="app-search">Search apps</Label>
+              <div className="relative">
+                <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="app-search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search by app name, slug, description, or owner"
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <div className="space-y-2 lg:w-60">
+              <Label>Sort by</Label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sort apps" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Newest first</SelectItem>
+                  <SelectItem value="oldest">Oldest first</SelectItem>
+                  <SelectItem value="name">Name (A-Z)</SelectItem>
+                  <SelectItem value="releases">Most releases</SelectItem>
+                  <SelectItem value="downloads">Most downloads</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 lg:pb-0.5">
+              {hasViewFilters && (
+                <Button variant="outline" onClick={resetViewFilters} className="w-full lg:w-auto">
+                  <X className="h-4 w-4" />
+                  Clear
+                </Button>
+              )}
+              <div className="hidden rounded-md border px-3 py-2 text-sm text-muted-foreground lg:flex lg:items-center lg:gap-2">
+                <ArrowUpDown className="h-4 w-4" />
+                {resultLabel}
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground lg:hidden">{resultLabel}</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Apps Grid */}
       {apps.length === 0 ? (
         <Card>
@@ -378,8 +522,23 @@ export function AppsClient() {
           </CardContent>
         </Card>
       ) : (
+        visibleApps.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <Search className="mb-4 h-12 w-12 text-muted-foreground/50" />
+              <h3 className="text-lg font-medium">No apps match your filters</h3>
+              <p className="mt-1 max-w-sm text-muted-foreground">
+                Try a broader search or clear the current sort and filter settings.
+              </p>
+              <Button variant="outline" className="mt-4 gap-2" onClick={resetViewFilters}>
+                <X className="h-4 w-4" />
+                Clear Filters
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {apps.map((app) => (
+          {visibleApps.map((app) => (
             <Card key={app.id} className="relative group">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
@@ -407,7 +566,7 @@ export function AppsClient() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(app.id, app.name)}
+                      onClick={() => setAppToDelete(app)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -468,6 +627,7 @@ export function AppsClient() {
             </Card>
           ))}
         </div>
+        )
       )}
     </div>
   );
