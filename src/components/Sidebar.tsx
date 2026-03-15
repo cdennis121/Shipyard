@@ -21,6 +21,8 @@ interface SidebarProps {
   user: {
     name?: string | null;
     role?: string;
+    tenantName?: string;
+    tenantSlug?: string;
   };
   onSignOut: () => Promise<void>;
   className?: string;
@@ -73,8 +75,10 @@ export function Sidebar({ user, onSignOut, className }: SidebarProps) {
           <Anchor className="h-4 w-4 text-white" />
         </div>
         <div className="flex flex-col">
-          <span className="text-sm font-semibold">Shipyard</span>
-          <span className="text-xs text-muted-foreground">Update Server</span>
+          <span className="text-sm font-semibold">{user.tenantName || 'Shipyard'}</span>
+          <span className="text-xs text-muted-foreground">
+            {user.tenantSlug || 'Update Server'}
+          </span>
         </div>
       </div>
 
@@ -101,7 +105,7 @@ export function Sidebar({ user, onSignOut, className }: SidebarProps) {
           })}
         </div>
 
-        {user.role === 'admin' && (
+        {(user.role === 'admin' || user.role === 'platform_admin') && (
           <>
             <Separator className="my-4" />
             <div className="mb-2 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">

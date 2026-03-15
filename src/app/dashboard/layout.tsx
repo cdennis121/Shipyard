@@ -20,7 +20,12 @@ export default async function DashboardLayout({
     redirect('/login');
   }
 
-  const user = { name: session.user.name, role: session.user.role };
+  const user = {
+    name: session.user.name,
+    role: session.user.role,
+    tenantName: session.user.tenantName,
+    tenantSlug: session.user.tenantSlug,
+  };
   const handleSignOut = async () => {
     'use server';
     await signOut({ redirectTo: '/login' });
@@ -55,7 +60,7 @@ export default async function DashboardLayout({
           </Sheet>
           <div className="flex items-center gap-2">
             <Anchor className="h-5 w-5 text-primary" />
-            <span className="font-semibold">Shipyard</span>
+            <span className="font-semibold">{session.user.tenantName}</span>
           </div>
         </header>
 

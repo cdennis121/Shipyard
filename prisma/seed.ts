@@ -7,12 +7,30 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
+  const defaultTenantName = process.env.ADMIN_TENANT_NAME || 'Shipyard';
+  const defaultTenantSlug = process.env.ADMIN_TENANT_SLUG || 'shipyard';
   const adminUsername = process.env.ADMIN_USERNAME || 'admin';
   const adminPassword = process.env.ADMIN_PASSWORD || 'admin123!';
   const resetAdminPassword = process.env.RESET_ADMIN_PASSWORD_ON_SEED === 'true';
 
+  const tenant = await prisma.tenant.upsert({
+    where: { slug: defaultTenantSlug },
+    update: {
+      name: defaultTenantName,
+    },
+    create: {
+      name: defaultTenantName,
+      slug: defaultTenantSlug,
+    },
+  });
+
   const existingAdmin = await prisma.user.findUnique({
-    where: { username: adminUsername },
+    where: {
+      tenantId_username: {
+        tenantId: tenant.id,
+        username: adminUsername,
+      },
+    },
   });
 
   if (!existingAdmin) {
@@ -22,13 +40,14 @@ async function main() {
 
     const admin = await prisma.user.create({
       data: {
+        tenantId: tenant.id,
         username: adminUsername,
         passwordHash,
-        role: 'admin',
+        role: 'platform_admin',
       },
     });
 
-    console.log(`Admin user created: ${admin.username}`);
+    console.log(`Admin user created: ${tenant.slug}/${admin.username}`);
     return;
   }
 
@@ -40,14 +59,14 @@ async function main() {
   const passwordHash = await bcrypt.hash(adminPassword, 12);
 
   await prisma.user.update({
-    where: { username: adminUsername },
+    where: { id: existingAdmin.id },
     data: {
       passwordHash,
-      role: 'admin',
+      role: 'platform_admin',
     },
   });
 
-  console.log(`Admin user updated: ${adminUsername}`);
+  console.log(`Admin user updated: ${tenant.slug}/${adminUsername}`);
 }
 
 main()

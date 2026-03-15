@@ -5,10 +5,24 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
-export function SettingsClient() {
+interface SettingsClientProps {
+  initialTenantName: string;
+  tenantSlug: string;
+  canManageServer: boolean;
+}
+
+export function SettingsClient({
+  initialTenantName,
+  tenantSlug,
+  canManageServer,
+}: SettingsClientProps) {
+  const [tenantName, setTenantName] = useState(initialTenantName);
+  const [brandingLoading, setBrandingLoading] = useState(false);
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const [cleanupConfirmOpen, setCleanupConfirmOpen] = useState(false);
   const [cleanupResult, setCleanupResult] = useState<{
@@ -17,6 +31,30 @@ export function SettingsClient() {
     deletedFiles: string[];
     errors: string[];
   } | null>(null);
+
+  const handleBrandingSave = async () => {
+    setBrandingLoading(true);
+
+    try {
+      const response = await fetch('/api/tenant', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: tenantName }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update branding');
+      }
+
+      setTenantName(data.name);
+      toast.success('Branding updated');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setBrandingLoading(false);
+    }
+  };
 
   const handlePreviewCleanup = async () => {
     setCleanupLoading(true);
@@ -96,6 +134,41 @@ export function SettingsClient() {
 
   return (
     <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Tenant Branding</CardTitle>
+          <CardDescription>
+            Set the brand name your users see across the dashboard and sign-in flow.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="tenant-name">Brand name</Label>
+            <Input
+              id="tenant-name"
+              value={tenantName}
+              onChange={(event) => setTenantName(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="tenant-slug">Brand URL</Label>
+            <Input id="tenant-slug" value={tenantSlug} disabled />
+            <p className="text-xs text-muted-foreground">
+              Users sign in with <code className="rounded bg-muted px-1">{tenantSlug}</code> and
+              their username.
+            </p>
+          </div>
+          <Button
+            onClick={handleBrandingSave}
+            disabled={brandingLoading || tenantName.trim().length === 0}
+          >
+            {brandingLoading ? 'Saving...' : 'Save Branding'}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {canManageServer && (
+        <>
       <ConfirmDialog
         open={cleanupConfirmOpen}
         onOpenChange={setCleanupConfirmOpen}
@@ -178,6 +251,8 @@ export function SettingsClient() {
           </p>
         </CardContent>
       </Card>
+        </>
+      )}
 
       <Card>
         <CardHeader>

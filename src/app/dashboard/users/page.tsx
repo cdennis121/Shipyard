@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/route-auth';
 import { redirect } from 'next/navigation';
 import prisma from '@/lib/db';
 
@@ -6,8 +6,9 @@ import prisma from '@/lib/db';
 export const dynamic = 'force-dynamic';
 import { UsersClient } from '@/components/UsersClient';
 
-async function getUsers() {
+async function getUsers(tenantId: string) {
   return prisma.user.findMany({
+    where: { tenantId },
     select: {
       id: true,
       username: true,
@@ -22,24 +23,24 @@ async function getUsers() {
 }
 
 export default async function UsersPage() {
-  const session = await auth();
+  const user = await getCurrentUser();
   
-  if (session?.user.role !== 'admin') {
+  if (!user || !['admin', 'platform_admin'].includes(user.role)) {
     redirect('/dashboard');
   }
 
-  const users = await getUsers();
+  const users = await getUsers(user.tenantId);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Users</h1>
         <p className="text-muted-foreground">
-          Manage admin users for the update server
+          Manage users for {user.tenant.name}
         </p>
       </div>
 
-      <UsersClient users={users} currentUserId={session.user.id} />
+      <UsersClient users={users} currentUserId={user.id} />
     </div>
   );
 }

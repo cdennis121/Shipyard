@@ -27,11 +27,17 @@ export async function DELETE(
 
   try {
     const [user, ownedAppsCount, createdApiKeysCount] = await prisma.$transaction([
-      prisma.user.findUnique({
-        where: { id },
+      prisma.user.findFirst({
+        where: {
+          id,
+          tenantId: currentUser.tenantId,
+        },
       }),
       prisma.app.count({
-        where: { createdById: id },
+        where: {
+          createdById: id,
+          tenantId: currentUser.tenantId,
+        },
       }),
       prisma.apiKey.count({
         where: { createdById: id },
@@ -59,7 +65,7 @@ export async function DELETE(
     }
 
     await prisma.user.delete({
-      where: { id },
+      where: { id: user.id },
     });
 
     return NextResponse.json({ message: 'User deleted successfully' });

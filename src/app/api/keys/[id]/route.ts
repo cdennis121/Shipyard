@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { requireAdminUser } from '@/lib/route-auth';
+import { findTenantApiKeyOrResponse, requireAdminUser } from '@/lib/route-auth';
 
 type RouteParams = Promise<{ id: string }>;
 
@@ -13,23 +13,18 @@ export async function DELETE(
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id: keyId } = await params;
 
   try {
-    const apiKey = await prisma.apiKey.findUnique({
-      where: { id: keyId },
-    });
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: 'API key not found' },
-        { status: 404 }
-      );
+    const access = await findTenantApiKeyOrResponse(keyId, user);
+    if ('response' in access) {
+      return access.response;
     }
 
     await prisma.apiKey.delete({
-      where: { id: keyId },
+      where: { id: access.apiKey.id },
     });
 
     return NextResponse.json({ message: 'API key revoked successfully' });

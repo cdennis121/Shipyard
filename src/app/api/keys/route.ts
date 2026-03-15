@@ -11,8 +11,10 @@ export async function GET() {
     if ('response' in authResult) {
       return authResult.response;
     }
+    const { user } = authResult;
 
     const apiKeys = await prisma.apiKey.findMany({
+      where: user.role === 'platform_admin' ? undefined : { app: { tenantId: user.tenantId } },
       orderBy: { createdAt: 'desc' },
       include: {
         app: {

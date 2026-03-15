@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { deleteReleaseFiles } from '@/lib/cleanup';
 import {
+  findTenantReleaseOrResponse,
   requireAdminUser,
   requireAuthenticatedUser,
 } from '@/lib/route-auth';
@@ -21,12 +22,12 @@ export async function GET(
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id } = await params;
 
   try {
-    const release = await prisma.release.findUnique({
-      where: { id },
+    const access = await findTenantReleaseOrResponse(id, user, {
       include: {
         files: true,
         app: {
@@ -44,13 +45,10 @@ export async function GET(
         },
       },
     });
-
-    if (!release) {
-      return NextResponse.json(
-        { error: 'Release not found' },
-        { status: 404 }
-      );
+    if ('response' in access) {
+      return access.response;
     }
+    const release = access.release;
 
     return NextResponse.json(release);
   } catch (error) {
@@ -71,6 +69,7 @@ export async function PATCH(
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id } = await params;
 
@@ -95,16 +94,11 @@ export async function PATCH(
     } = parsed.data;
 
     // Check if release exists
-    const existing = await prisma.release.findUnique({
-      where: { id },
-    });
-
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'Release not found' },
-        { status: 404 }
-      );
+    const access = await findTenantReleaseOrResponse(id, user);
+    if ('response' in access) {
+      return access.response;
     }
+    const existing = access.release;
 
     // If version/channel/platform changed, check for duplicates
     if (version || channel || platform) {
@@ -167,27 +161,21 @@ export async function DELETE(
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id } = await params;
 
   try {
-    const release = await prisma.release.findUnique({
-      where: { id },
-    });
-
-    if (!release) {
-      return NextResponse.json(
-        { error: 'Release not found' },
-        { status: 404 }
-      );
+    const access = await findTenantReleaseOrResponse(id, user);
+    if ('response' in access) {
+      return access.response;
     }
-
     // Delete S3 files first
-    await deleteReleaseFiles(id);
+    await deleteReleaseFiles(access.release.id);
 
     // Delete release (cascades to files, api keys, stats, tracking)
     await prisma.release.delete({
-      where: { id },
+      where: { id: access.release.id },
     });
 
     return NextResponse.json({ message: 'Release deleted successfully' });

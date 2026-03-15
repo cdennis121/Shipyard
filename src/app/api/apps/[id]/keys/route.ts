@@ -3,6 +3,7 @@ import prisma from '@/lib/db';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  findTenantAppOrResponse,
   requireAdminUser,
   requireAuthenticatedUser,
 } from '@/lib/route-auth';
@@ -22,24 +23,18 @@ export async function GET(
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id: appId } = await params;
 
   try {
-    // Check if app exists
-    const app = await prisma.app.findUnique({
-      where: { id: appId },
-    });
-
-    if (!app) {
-      return NextResponse.json(
-        { error: 'App not found' },
-        { status: 404 }
-      );
+    const appAccess = await findTenantAppOrResponse(appId, user);
+    if ('response' in appAccess) {
+      return appAccess.response;
     }
 
     const apiKeys = await prisma.apiKey.findMany({
-      where: { appId },
+      where: { appId: appAccess.app.id },
       select: {
         id: true,
         name: true,
@@ -89,15 +84,9 @@ export async function POST(
     const { name, expiresInDays } = parsed.data;
 
     // Check if app exists
-    const app = await prisma.app.findUnique({
-      where: { id: appId },
-    });
-
-    if (!app) {
-      return NextResponse.json(
-        { error: 'App not found' },
-        { status: 404 }
-      );
+    const appAccess = await findTenantAppOrResponse(appId, user);
+    if ('response' in appAccess) {
+      return appAccess.response;
     }
 
     // Generate a new API key
@@ -113,7 +102,7 @@ export async function POST(
       data: {
         name,
         keyHash,
-        appId,
+        appId: appAccess.app.id,
         expiresAt,
         createdById: user.id,
       },

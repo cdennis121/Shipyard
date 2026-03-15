@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/route-auth';
 import { redirect } from 'next/navigation';
 import { SettingsClient } from '@/components/SettingsClient';
 
@@ -6,9 +6,9 @@ import { SettingsClient } from '@/components/SettingsClient';
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const session = await auth();
+  const user = await getCurrentUser();
   
-  if (session?.user.role !== 'admin') {
+  if (!user || !['admin', 'platform_admin'].includes(user.role)) {
     redirect('/dashboard');
   }
 
@@ -17,11 +17,15 @@ export default async function SettingsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
-          Server configuration and maintenance
+          Branding for {user.tenant.name}
         </p>
       </div>
 
-      <SettingsClient />
+      <SettingsClient
+        initialTenantName={user.tenant.name}
+        tenantSlug={user.tenant.slug}
+        canManageServer={user.role === 'platform_admin'}
+      />
     </div>
   );
 }

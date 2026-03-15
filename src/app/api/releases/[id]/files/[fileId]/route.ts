@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { deleteFile } from '@/lib/s3-operations';
-import { requireAdminUser } from '@/lib/route-auth';
+import { findTenantReleaseOrResponse, requireAdminUser } from '@/lib/route-auth';
 
 type RouteParams = Promise<{ id: string; fileId: string }>;
 
@@ -14,14 +14,20 @@ export async function DELETE(
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id: releaseId, fileId } = await params;
 
   try {
+    const releaseAccess = await findTenantReleaseOrResponse(releaseId, user);
+    if ('response' in releaseAccess) {
+      return releaseAccess.response;
+    }
+
     const file = await prisma.releaseFile.findFirst({
       where: {
         id: fileId,
-        releaseId,
+        releaseId: releaseAccess.release.id,
       },
     });
 

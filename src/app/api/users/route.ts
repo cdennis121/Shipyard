@@ -13,9 +13,11 @@ export async function GET() {
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user: currentUser } = authResult;
 
   try {
     const users = await prisma.user.findMany({
+      where: { tenantId: currentUser.tenantId },
       select: {
         id: true,
         username: true,
@@ -44,6 +46,7 @@ export async function POST(request: NextRequest) {
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user: currentUser } = authResult;
 
   try {
     const body = await request.json().catch(() => null);
@@ -56,9 +59,21 @@ export async function POST(request: NextRequest) {
     }
     const { username, password, role } = parsed.data;
 
+    if (role === 'platform_admin' && currentUser.role !== 'platform_admin') {
+      return NextResponse.json(
+        { error: 'Only platform admins can create platform admins' },
+        { status: 403 }
+      );
+    }
+
     // Check for existing user
     const existing = await prisma.user.findUnique({
-      where: { username },
+      where: {
+        tenantId_username: {
+          tenantId: currentUser.tenantId,
+          username,
+        },
+      },
     });
 
     if (existing) {
@@ -72,6 +87,7 @@ export async function POST(request: NextRequest) {
 
     const user = await prisma.user.create({
       data: {
+        tenantId: currentUser.tenantId,
         username,
         passwordHash,
         role,

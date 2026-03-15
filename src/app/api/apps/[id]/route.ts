@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import {
+  findTenantAppOrResponse,
   requireAdminUser,
   requireAuthenticatedUser,
 } from '@/lib/route-auth';
@@ -20,11 +21,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if ('response' in authResult) {
       return authResult.response;
     }
+    const { user } = authResult;
 
     const { id } = await params;
 
-    const app = await prisma.app.findUnique({
-      where: { id },
+    const app = await prisma.app.findFirst({
+      where: {
+        id,
+        ...(user.role === 'platform_admin' ? {} : { tenantId: user.tenantId }),
+      },
       include: {
         createdBy: {
           select: { username: true },
@@ -56,8 +61,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if ('response' in authResult) {
       return authResult.response;
     }
+    const { user } = authResult;
 
     const { id } = await params;
+    const access = await findTenantAppOrResponse(id, user);
+    if ('response' in access) {
+      return access.response;
+    }
     const body = await request.json().catch(() => null);
     const parsed = updateAppSchema.safeParse(body);
 
@@ -69,7 +79,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { name, description, icon } = parsed.data;
 
     const app = await prisma.app.update({
-      where: { id },
+      where: { id: access.app.id },
       data: {
         ...(name && { name }),
         ...(description !== undefined && { description }),
@@ -96,12 +106,17 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if ('response' in authResult) {
       return authResult.response;
     }
+    const { user } = authResult;
 
     const { id } = await params;
+    const access = await findTenantAppOrResponse(id, user);
+    if ('response' in access) {
+      return access.response;
+    }
 
     // Delete app (cascades to releases, files, etc.)
     await prisma.app.delete({
-      where: { id },
+      where: { id: access.app.id },
     });
 
     return NextResponse.json({ success: true });

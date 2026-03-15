@@ -3,6 +3,7 @@ import { Plus, Filter } from 'lucide-react';
 import prisma from '@/lib/db';
 import { ReleasesFilters } from '@/components/ReleasesFilters';
 import { ReleasesListClient } from '@/components/ReleasesListClient';
+import { getCurrentUser } from '@/lib/route-auth';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
@@ -20,13 +21,16 @@ interface PageProps {
   }>;
 }
 
-async function getApps() {
+async function getApps(tenantId: string, isPlatformAdmin: boolean) {
   return prisma.app.findMany({
+    where: isPlatformAdmin ? undefined : { tenantId },
     orderBy: { name: 'asc' },
   });
 }
 
 async function getReleases(
+  tenantId: string,
+  isPlatformAdmin: boolean,
   channel?: string,
   platform?: string,
   appId?: string,
@@ -37,6 +41,7 @@ async function getReleases(
   const trimmedQuery = query?.trim();
   const releases = await prisma.release.findMany({
     where: {
+      ...(isPlatformAdmin ? {} : { app: { tenantId } }),
       ...(channel && channel !== 'all' && { channel }),
       ...(platform && platform !== 'all' && { platform }),
       ...(appId && appId !== 'all' && { appId }),
@@ -95,9 +100,17 @@ async function getReleases(
 }
 
 export default async function ReleasesPage({ searchParams }: PageProps) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return null;
+  }
+
+  const isPlatformAdmin = user.role === 'platform_admin';
   const params = await searchParams;
   const [releases, apps] = await Promise.all([
     getReleases(
+      user.tenantId,
+      isPlatformAdmin,
       params.channel,
       params.platform,
       params.appId,
@@ -105,7 +118,7 @@ export default async function ReleasesPage({ searchParams }: PageProps) {
       params.q,
       params.sort
     ),
-    getApps(),
+    getApps(user.tenantId, isPlatformAdmin),
   ]);
   const hasFilters = Boolean(
     params.q?.trim() ||
@@ -165,7 +178,21 @@ export default async function ReleasesPage({ searchParams }: PageProps) {
 
       <ReleasesListClient
         key={releasesListKey}
-        initialReleases={releases}
+        initialReleases={releases.map((release) => ({
+          ...release,
+          createdAt: release.createdAt.toISOString(),
+          updatedAt: release.updatedAt.toISOString(),
+          releaseDate: release.releaseDate.toISOString(),
+          files: release.files.map((file) => ({
+            ...file,
+            createdAt: file.createdAt.toISOString(),
+          })),
+          app: {
+            ...release.app,
+            createdAt: release.app.createdAt.toISOString(),
+            updatedAt: release.app.updatedAt.toISOString(),
+          },
+        }))}
         hasFilters={hasFilters}
       />
     </div>

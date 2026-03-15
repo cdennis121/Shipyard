@@ -3,7 +3,7 @@ import { z, type ZodError } from 'zod';
 const channelSchema = z.enum(['latest', 'beta', 'alpha']);
 const platformSchema = z.enum(['windows', 'mac', 'linux']);
 const archSchema = z.enum(['x64', 'arm64', 'universal', 'ia32']);
-const roleSchema = z.enum(['admin', 'viewer']);
+const roleSchema = z.enum(['platform_admin', 'admin', 'viewer']);
 
 const trimmedString = z.string().trim().min(1);
 
@@ -81,6 +81,22 @@ export const createUserSchema = z.object({
   username: trimmedString,
   password: z.string().min(1),
   role: roleSchema.default('admin'),
+});
+
+export const createTenantSignupSchema = z.object({
+  brandName: trimmedString,
+  tenantSlug: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+      message: 'Tenant slug must be lowercase alphanumeric with hyphens',
+    }),
+  username: trimmedString,
+  password: z.string().min(8),
+});
+
+export const updateTenantBrandingSchema = z.object({
+  name: trimmedString,
 });
 
 export const createApiKeySchema = z.object({

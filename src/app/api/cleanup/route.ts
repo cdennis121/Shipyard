@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cleanupOrphanedFiles } from '@/lib/cleanup';
-import { requireAdminUser } from '@/lib/route-auth';
+import { requirePlatformAdminUser } from '@/lib/route-auth';
 import {
   cleanupRequestSchema,
   getValidationError,
@@ -8,7 +8,7 @@ import {
 
 // POST - Trigger manual cleanup
 export async function POST(request: NextRequest) {
-  const authResult = await requireAdminUser();
+  const authResult = await requirePlatformAdminUser();
   if ('response' in authResult) {
     return authResult.response;
   }
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
 // GET - Get cleanup preview (dry run)
 export async function GET() {
-  const authResult = await requireAdminUser();
+  const authResult = await requirePlatformAdminUser();
   if ('response' in authResult) {
     return authResult.response;
   }

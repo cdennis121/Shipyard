@@ -12,12 +12,18 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { redirect } from 'next/navigation';
 import prisma from '@/lib/db';
+import { getCurrentUser } from '@/lib/route-auth';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
-async function getStats() {
+async function getStats(tenantId: string, isPlatformAdmin: boolean) {
+  const appScope = isPlatformAdmin ? {} : { tenantId };
+  const releaseScope = isPlatformAdmin ? {} : { app: { tenantId } };
+  const downloadScope = isPlatformAdmin ? {} : { app: { tenantId } };
+  const apiKeyScope = isPlatformAdmin ? {} : { app: { tenantId } };
   const [
     totalApps,
     totalReleases,
@@ -26,17 +32,18 @@ async function getStats() {
     recentDownloads,
     totalApiKeys,
   ] = await Promise.all([
-    prisma.app.count(),
-    prisma.release.count(),
-    prisma.release.count({ where: { published: true } }),
-    prisma.downloadStat.count({ where: { type: 'download' } }),
+    prisma.app.count({ where: appScope }),
+    prisma.release.count({ where: releaseScope }),
+    prisma.release.count({ where: { ...releaseScope, published: true } }),
+    prisma.downloadStat.count({ where: { ...downloadScope, type: 'download' } }),
     prisma.downloadStat.count({
       where: {
+        ...downloadScope,
         type: 'download',
         createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
       },
     }),
-    prisma.apiKey.count(),
+    prisma.apiKey.count({ where: apiKeyScope }),
   ]);
 
   return {
@@ -49,9 +56,10 @@ async function getStats() {
   };
 }
 
-async function getRecentReleases() {
+async function getRecentReleases(tenantId: string, isPlatformAdmin: boolean) {
   return prisma.release.findMany({
     take: 5,
+    where: isPlatformAdmin ? undefined : { app: { tenantId } },
     orderBy: { createdAt: 'desc' },
     include: {
       app: {
@@ -65,8 +73,15 @@ async function getRecentReleases() {
 }
 
 export default async function DashboardPage() {
-  const stats = await getStats();
-  const recentReleases = await getRecentReleases();
+  const user = await getCurrentUser();
+
+  if (!user) {
+    redirect('/login');
+  }
+
+  const isPlatformAdmin = user.role === 'platform_admin';
+  const stats = await getStats(user.tenantId, isPlatformAdmin);
+  const recentReleases = await getRecentReleases(user.tenantId, isPlatformAdmin);
   const draftReleases = stats.totalReleases - stats.publishedReleases;
   const nextSteps = [
     {
@@ -109,7 +124,7 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Overview of your Shipyard update server
+            Overview of {user.tenant.name}
           </p>
         </div>
         <Link href="/dashboard/apps">

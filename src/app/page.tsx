@@ -25,6 +25,9 @@ export default async function Home() {
           <Link href="/login">
             <Button size="lg">Sign In</Button>
           </Link>
+          <Link href="/signup">
+            <Button size="lg" variant="outline">Create Branded Workspace</Button>
+          </Link>
         </div>
 
         <div className="pt-8 border-t">

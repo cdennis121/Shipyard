@@ -197,7 +197,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
           <div>
             <CardTitle>All Users</CardTitle>
             <CardDescription>
-              {users.length} user{users.length !== 1 ? 's' : ''} registered
+              {users.length} user{users.length !== 1 ? 's' : ''} in this tenant
             </CardDescription>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -207,7 +207,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Create User</DialogTitle>
-                <DialogDescription>Add a new admin user</DialogDescription>
+                <DialogDescription>Add a new user to this branded workspace</DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
@@ -287,6 +287,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All roles</SelectItem>
+                <SelectItem value="platform_admin">Platform Admin</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="viewer">Viewer</SelectItem>
               </SelectContent>

@@ -3,6 +3,7 @@ import prisma from '@/lib/db';
 import {
   requireAdminUser,
   requireAuthenticatedUser,
+  scopeToTenant,
 } from '@/lib/route-auth';
 import {
   createAppSchema,
@@ -18,8 +19,10 @@ export async function GET() {
     if ('response' in authResult) {
       return authResult.response;
     }
+    const { user } = authResult;
 
     const apps = await prisma.app.findMany({
+      where: scopeToTenant(user),
       orderBy: { name: 'asc' },
       include: {
         createdBy: {
@@ -74,6 +77,7 @@ export async function POST(request: NextRequest) {
 
     const app = await prisma.app.create({
       data: {
+        tenantId: user.tenantId,
         name,
         slug,
         description,

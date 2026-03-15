@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { requireAdminUser } from '@/lib/route-auth';
+import { findTenantReleaseOrResponse, requireAdminUser } from '@/lib/route-auth';
 import {
   createReleaseFileSchema,
   getValidationError,
@@ -17,6 +17,7 @@ export async function POST(
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id: releaseId } = await params;
 
@@ -32,20 +33,14 @@ export async function POST(
     const { filename, s3Key, sha512, size, arch } = parsed.data;
 
     // Verify release exists
-    const release = await prisma.release.findUnique({
-      where: { id: releaseId },
-    });
-
-    if (!release) {
-      return NextResponse.json(
-        { error: 'Release not found' },
-        { status: 404 }
-      );
+    const releaseAccess = await findTenantReleaseOrResponse(releaseId, user);
+    if ('response' in releaseAccess) {
+      return releaseAccess.response;
     }
 
     const file = await prisma.releaseFile.create({
       data: {
-        releaseId,
+        releaseId: releaseAccess.release.id,
         filename,
         s3Key,
         sha512,

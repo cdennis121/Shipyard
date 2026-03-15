@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { findTenantReleaseOrResponse, requireAuthenticatedUser } from '@/lib/route-auth';
 
 type RouteParams = Promise<{ releaseId: string }>;
 
@@ -9,25 +9,29 @@ export async function GET(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const authResult = await requireAuthenticatedUser();
+  if ('response' in authResult) {
+    return authResult.response;
   }
+  const { user } = authResult;
 
   const { releaseId } = await params;
 
   try {
+    const releaseAccess = await findTenantReleaseOrResponse(releaseId, user, {
+      select: { id: true, stagingPercentage: true },
+    });
+    if ('response' in releaseAccess) {
+      return releaseAccess.response;
+    }
+
     // Get rollout tracking statistics
-    const [totalChecks, eligibleCount, release] = await Promise.all([
+    const [totalChecks, eligibleCount] = await Promise.all([
       prisma.rolloutTracking.count({
-        where: { releaseId },
+        where: { releaseId: releaseAccess.release.id },
       }),
       prisma.rolloutTracking.count({
-        where: { releaseId, eligible: true },
-      }),
-      prisma.release.findUnique({
-        where: { id: releaseId },
-        select: { stagingPercentage: true },
+        where: { releaseId: releaseAccess.release.id, eligible: true },
       }),
     ]);
 
@@ -35,7 +39,7 @@ export async function GET(
     const downloadsByDay = await prisma.downloadStat.groupBy({
       by: ['createdAt'],
       where: {
-        releaseId,
+        releaseId: releaseAccess.release.id,
         type: 'download',
         createdAt: {
           gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
@@ -67,7 +71,7 @@ export async function GET(
     const platformBreakdown = await prisma.downloadStat.groupBy({
       by: ['platform'],
       where: {
-        releaseId,
+        releaseId: releaseAccess.release.id,
         type: 'download',
       },
       _count: true,
@@ -78,7 +82,7 @@ export async function GET(
         totalChecks,
         eligibleCount,
         eligiblePercentage: totalChecks > 0 ? (eligibleCount / totalChecks) * 100 : 0,
-        targetPercentage: release?.stagingPercentage || 100,
+        targetPercentage: releaseAccess.release.stagingPercentage || 100,
       },
       downloads: {
         total: downloadsByDay.reduce((sum, item) => sum + item._count, 0),

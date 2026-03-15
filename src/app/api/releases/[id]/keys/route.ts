@@ -3,6 +3,7 @@ import prisma from '@/lib/db';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  findTenantReleaseOrResponse,
   requireAdminUser,
   requireAuthenticatedUser,
 } from '@/lib/route-auth';
@@ -22,25 +23,20 @@ export async function GET(
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id: releaseId } = await params;
 
   try {
-    // Get the release to find its app
-    const release = await prisma.release.findUnique({
-      where: { id: releaseId },
+    const releaseAccess = await findTenantReleaseOrResponse(releaseId, user, {
       select: { appId: true },
     });
-
-    if (!release) {
-      return NextResponse.json(
-        { error: 'Release not found' },
-        { status: 404 }
-      );
+    if ('response' in releaseAccess) {
+      return releaseAccess.response;
     }
 
     const apiKeys = await prisma.apiKey.findMany({
-      where: { appId: release.appId },
+      where: { appId: releaseAccess.release.appId },
       select: {
         id: true,
         name: true,
@@ -90,16 +86,11 @@ export async function POST(
     const { name, expiresInDays } = parsed.data;
 
     // Check if release exists and get its app
-    const release = await prisma.release.findUnique({
-      where: { id: releaseId },
+    const releaseAccess = await findTenantReleaseOrResponse(releaseId, user, {
       select: { appId: true },
     });
-
-    if (!release) {
-      return NextResponse.json(
-        { error: 'Release not found' },
-        { status: 404 }
-      );
+    if ('response' in releaseAccess) {
+      return releaseAccess.response;
     }
 
     // Generate a new API key
@@ -115,7 +106,7 @@ export async function POST(
       data: {
         name,
         keyHash,
-        appId: release.appId,
+        appId: releaseAccess.release.appId,
         expiresAt,
         createdById: user.id,
       },

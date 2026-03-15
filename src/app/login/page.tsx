@@ -14,12 +14,23 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
+  const prefilledTenant = searchParams.get('tenant') || '';
+  const prefilledUsername = searchParams.get('username') || '';
   const { data: session, status } = useSession();
   
+  const [tenant, setTenant] = useState(prefilledTenant);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setTenant(prefilledTenant);
+  }, [prefilledTenant]);
+
+  useEffect(() => {
+    setUsername(prefilledUsername);
+  }, [prefilledUsername]);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -35,6 +46,7 @@ function LoginForm() {
 
     try {
       const result = await signIn('credentials', {
+        tenant,
         username,
         password,
         callbackUrl,
@@ -86,6 +98,19 @@ function LoginForm() {
           )}
           
           <div className="space-y-2">
+            <Label htmlFor="tenant">Brand URL</Label>
+            <Input
+              id="tenant"
+              type="text"
+              value={tenant}
+              onChange={(e) => setTenant(e.target.value.toLowerCase())}
+              placeholder="your-brand"
+              required
+              autoComplete="organization"
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
             <Input
               id="username"
@@ -111,10 +136,16 @@ function LoginForm() {
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading || !tenant}>
             {loading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>
+        <p className="mt-4 text-center text-sm text-muted-foreground">
+          Need a branded workspace?{' '}
+          <a href="/signup" className="font-medium text-primary hover:underline">
+            Create one
+          </a>
+        </p>
       </CardContent>
     </Card>
   );

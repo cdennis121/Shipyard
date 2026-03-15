@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import {
+  findTenantAppOrResponse,
   requireAdminUser,
   requireAuthenticatedUser,
 } from '@/lib/route-auth';
@@ -15,6 +16,7 @@ export async function GET(request: NextRequest) {
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const searchParams = request.nextUrl.searchParams;
   const channel = searchParams.get('channel');
@@ -24,6 +26,7 @@ export async function GET(request: NextRequest) {
   try {
     const releases = await prisma.release.findMany({
       where: {
+        ...(user.role === 'platform_admin' ? {} : { app: { tenantId: user.tenantId } }),
         ...(appId && { appId }),
         ...(channel && { channel }),
         ...(platform && { platform }),
@@ -56,6 +59,7 @@ export async function POST(request: NextRequest) {
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   try {
     const body = await request.json().catch(() => null);
@@ -79,19 +83,16 @@ export async function POST(request: NextRequest) {
     } = parsed.data;
 
     // Verify app exists
-    const app = await prisma.app.findUnique({ where: { id: appId } });
-    if (!app) {
-      return NextResponse.json(
-        { error: 'App not found' },
-        { status: 404 }
-      );
+    const appAccess = await findTenantAppOrResponse(appId, user);
+    if ('response' in appAccess) {
+      return appAccess.response;
     }
 
     // Check for duplicate version/channel/platform combination within the app
     const existing = await prisma.release.findUnique({
       where: {
         appId_version_channel_platform: {
-          appId,
+          appId: appAccess.app.id,
           version,
           channel,
           platform,
@@ -108,7 +109,7 @@ export async function POST(request: NextRequest) {
 
     const release = await prisma.release.create({
       data: {
-        appId,
+        appId: appAccess.app.id,
         version,
         name,
         notes,
