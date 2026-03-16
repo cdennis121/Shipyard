@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { requireAdminUser } from '@/lib/route-auth';
+import { requireTenantManagerUser } from '@/lib/route-auth';
+import { getApiKeyAccessWhere } from '@/lib/tenant-access';
 
 type RouteParams = Promise<{ id: string }>;
 
@@ -9,16 +10,20 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const authResult = await requireAdminUser();
+  const authResult = await requireTenantManagerUser();
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id: keyId } = await params;
 
   try {
-    const apiKey = await prisma.apiKey.findUnique({
-      where: { id: keyId },
+    const apiKey = await prisma.apiKey.findFirst({
+      where: {
+        id: keyId,
+        ...getApiKeyAccessWhere(user),
+      },
     });
 
     if (!apiKey) {

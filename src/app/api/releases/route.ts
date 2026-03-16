@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import {
-  requireAdminUser,
   requireAuthenticatedUser,
+  requireTenantManagerUser,
 } from '@/lib/route-auth';
 import {
   createReleaseSchema,
   getValidationError,
 } from '@/lib/request-schemas';
+import {
+  getReleaseAccessWhere,
+  isAdminUser,
+} from '@/lib/tenant-access';
+import { getPlatformLimits } from '@/lib/platform-settings';
 
 // GET - List all releases
 export async function GET(request: NextRequest) {
@@ -15,6 +20,7 @@ export async function GET(request: NextRequest) {
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const searchParams = request.nextUrl.searchParams;
   const channel = searchParams.get('channel');
@@ -24,6 +30,7 @@ export async function GET(request: NextRequest) {
   try {
     const releases = await prisma.release.findMany({
       where: {
+        ...getReleaseAccessWhere(user),
         ...(appId && { appId }),
         ...(channel && { channel }),
         ...(platform && { platform }),
@@ -52,10 +59,11 @@ export async function GET(request: NextRequest) {
 
 // POST - Create new release
 export async function POST(request: NextRequest) {
-  const authResult = await requireAdminUser();
+  const authResult = await requireTenantManagerUser();
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   try {
     const body = await request.json().catch(() => null);
@@ -79,12 +87,32 @@ export async function POST(request: NextRequest) {
     } = parsed.data;
 
     // Verify app exists
-    const app = await prisma.app.findUnique({ where: { id: appId } });
+    const app = await prisma.app.findFirst({
+      where: isAdminUser(user)
+        ? { id: appId }
+        : { id: appId, createdById: user.id },
+    });
     if (!app) {
       return NextResponse.json(
         { error: 'App not found' },
         { status: 404 }
       );
+    }
+
+    if (!isAdminUser(user)) {
+      const limits = await getPlatformLimits();
+      const releaseCount = await prisma.release.count({
+        where: { appId },
+      });
+
+      if (releaseCount >= limits.maxReleasesPerApp) {
+        return NextResponse.json(
+          {
+            error: `Free accounts can publish up to ${limits.maxReleasesPerApp} releases per app`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     // Check for duplicate version/channel/platform combination within the app

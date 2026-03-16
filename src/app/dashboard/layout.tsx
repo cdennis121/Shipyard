@@ -1,4 +1,5 @@
-import { auth, signOut } from '@/lib/auth';
+import { signOut } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/route-auth';
 import { redirect } from 'next/navigation';
 import { Anchor, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,13 +15,13 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  const user = await getCurrentUser();
 
-  if (!session?.user) {
+  if (!user) {
     redirect('/login');
   }
 
-  const user = { name: session.user.name, role: session.user.role };
+  const sidebarUser = { name: user.username, role: user.role };
   const handleSignOut = async () => {
     'use server';
     await signOut({ redirectTo: '/login' });
@@ -30,7 +31,7 @@ export default async function DashboardLayout({
     <div className="flex min-h-screen bg-background">
       {/* Desktop Sidebar */}
       <Sidebar
-        user={user}
+        user={sidebarUser}
         onSignOut={handleSignOut}
         className="sticky top-0 hidden h-screen lg:flex"
       />
@@ -47,7 +48,7 @@ export default async function DashboardLayout({
             </SheetTrigger>
             <SheetContent side="left" className="w-64 p-0">
               <Sidebar
-                user={user}
+                user={sidebarUser}
                 onSignOut={handleSignOut}
                 className="h-full border-r-0"
               />

@@ -3,7 +3,7 @@ import { z, type ZodError } from 'zod';
 const channelSchema = z.enum(['latest', 'beta', 'alpha']);
 const platformSchema = z.enum(['windows', 'mac', 'linux']);
 const archSchema = z.enum(['x64', 'arm64', 'universal', 'ia32']);
-const roleSchema = z.enum(['admin', 'viewer']);
+const roleSchema = z.enum(['admin', 'member', 'viewer']);
 
 const trimmedString = z.string().trim().min(1);
 
@@ -79,9 +79,11 @@ export const updateReleaseSchema = z
 
 export const createUserSchema = z.object({
   username: trimmedString,
-  password: z.string().min(1),
-  role: roleSchema.default('admin'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  role: roleSchema.default('member'),
 });
+
+export const registerUserSchema = createUserSchema.omit({ role: true });
 
 export const createApiKeySchema = z.object({
   name: trimmedString,
@@ -89,6 +91,7 @@ export const createApiKeySchema = z.object({
 });
 
 export const uploadRequestSchema = z.object({
+  releaseId: trimmedString,
   filename: trimmedString,
   contentType: trimmedString,
   channel: channelSchema,
@@ -107,6 +110,21 @@ export const createReleaseFileSchema = z.object({
 export const cleanupRequestSchema = z.object({
   dryRun: z.boolean().default(false),
 });
+
+export const updatePlatformSettingsSchema = z.object({
+  maxAppsPerUser: z.coerce.number().int().positive(),
+  maxReleasesPerApp: z.coerce.number().int().positive(),
+  allowPublicSignup: z.boolean(),
+});
+
+export const updateUserSchema = z
+  .object({
+    role: roleSchema.optional(),
+    isActive: z.boolean().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field is required',
+  });
 
 export function getValidationError(error: ZodError) {
   const flattened = error.flatten();

@@ -1,24 +1,62 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import prisma from '@/lib/db';
+import { UsersClient } from '@/components/UsersClient';
+import { getPlatformLimits } from '@/lib/platform-settings';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
-import { UsersClient } from '@/components/UsersClient';
 
 async function getUsers() {
-  return prisma.user.findMany({
-    select: {
-      id: true,
-      username: true,
-      role: true,
-      createdAt: true,
-      _count: {
-        select: { apiKeys: true },
+  const limits = await getPlatformLimits();
+  const [users, appReleaseCounts] = await Promise.all([
+    prisma.user.findMany({
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+        _count: {
+          select: {
+            apps: true,
+            apiKeys: true,
+          },
+        },
       },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.app.findMany({
+      select: {
+        createdById: true,
+        _count: {
+          select: {
+            releases: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const releaseTotalsByUser = appReleaseCounts.reduce<Record<string, number>>(
+    (totals, app) => {
+      totals[app.createdById] = (totals[app.createdById] ?? 0) + app._count.releases;
+      return totals;
     },
-    orderBy: { createdAt: 'desc' },
-  });
+    {}
+  );
+
+  return users.map((user) => ({
+    ...user,
+    usage: {
+      apps: user._count.apps,
+      releases: releaseTotalsByUser[user.id] ?? 0,
+      apiKeys: user._count.apiKeys,
+      appLimit: user.role === 'admin' ? null : limits.maxAppsPerUser,
+      releaseLimitPerApp:
+        user.role === 'admin' ? null : limits.maxReleasesPerApp,
+    },
+  }));
 }
 
 export default async function UsersPage() {
@@ -35,7 +73,7 @@ export default async function UsersPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Users</h1>
         <p className="text-muted-foreground">
-          Manage admin users for the update server
+          Supervise tenant accounts, quotas, and platform admins
         </p>
       </div>
 

@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import {
-  requireAdminUser,
   requireAuthenticatedUser,
+  requireTenantManagerUser,
 } from '@/lib/route-auth';
 import {
   createAppSchema,
   getValidationError,
 } from '@/lib/request-schemas';
+import {
+  getAppAccessWhere,
+  isAdminUser,
+} from '@/lib/tenant-access';
+import { getPlatformLimits } from '@/lib/platform-settings';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,8 +23,10 @@ export async function GET() {
     if ('response' in authResult) {
       return authResult.response;
     }
+    const { user } = authResult;
 
     const apps = await prisma.app.findMany({
+      where: getAppAccessWhere(user),
       orderBy: { name: 'asc' },
       include: {
         createdBy: {
@@ -44,7 +51,7 @@ export async function GET() {
 // POST /api/apps - Create a new app
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await requireAdminUser();
+    const authResult = await requireTenantManagerUser();
     if ('response' in authResult) {
       return authResult.response;
     }
@@ -70,6 +77,22 @@ export async function POST(request: NextRequest) {
         { error: 'An app with this slug already exists' },
         { status: 400 }
       );
+    }
+
+    if (!isAdminUser(user)) {
+      const limits = await getPlatformLimits();
+      const appCount = await prisma.app.count({
+        where: { createdById: user.id },
+      });
+
+      if (appCount >= limits.maxAppsPerUser) {
+        return NextResponse.json(
+          {
+            error: `Free accounts can host up to ${limits.maxAppsPerUser} app${limits.maxAppsPerUser === 1 ? '' : 's'}`,
+          },
+          { status: 403 }
+        );
+      }
     }
 
     const app = await prisma.app.create({

@@ -3,13 +3,14 @@ import prisma from '@/lib/db';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  requireAdminUser,
   requireAuthenticatedUser,
+  requireTenantManagerUser,
 } from '@/lib/route-auth';
 import {
   createApiKeySchema,
   getValidationError,
 } from '@/lib/request-schemas';
+import { getReleaseAccessWhere } from '@/lib/tenant-access';
 
 type RouteParams = Promise<{ id: string }>;
 
@@ -22,13 +23,16 @@ export async function GET(
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id: releaseId } = await params;
 
   try {
-    // Get the release to find its app
-    const release = await prisma.release.findUnique({
-      where: { id: releaseId },
+    const release = await prisma.release.findFirst({
+      where: {
+        id: releaseId,
+        ...getReleaseAccessWhere(user),
+      },
       select: { appId: true },
     });
 
@@ -70,7 +74,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const authResult = await requireAdminUser();
+  const authResult = await requireTenantManagerUser();
   if ('response' in authResult) {
     return authResult.response;
   }
@@ -89,9 +93,11 @@ export async function POST(
     }
     const { name, expiresInDays } = parsed.data;
 
-    // Check if release exists and get its app
-    const release = await prisma.release.findUnique({
-      where: { id: releaseId },
+    const release = await prisma.release.findFirst({
+      where: {
+        id: releaseId,
+        ...getReleaseAccessWhere(user),
+      },
       select: { appId: true },
     });
 

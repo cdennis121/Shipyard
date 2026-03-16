@@ -2,9 +2,11 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { getPlatformLimits } from '@/lib/platform-settings';
 
 export default async function Home() {
   const session = await auth();
+  const limits = await getPlatformLimits();
 
   if (session) {
     redirect('/dashboard');
@@ -20,12 +22,29 @@ export default async function Home() {
           A self-hosted update server for Electron applications with multi-channel
           support, staged rollouts, and a management dashboard.
         </p>
+
+        <p className="text-sm text-muted-foreground">
+          Free accounts can host up to {limits.maxAppsPerUser} app
+          {limits.maxAppsPerUser === 1 ? '' : 's'} with {limits.maxReleasesPerApp} releases
+          per app.
+        </p>
         
         <div className="flex gap-4 justify-center">
+          {limits.allowPublicSignup && (
+            <Link href="/signup">
+              <Button size="lg">Create Account</Button>
+            </Link>
+          )}
           <Link href="/login">
-            <Button size="lg">Sign In</Button>
+            <Button size="lg" variant="outline">Sign In</Button>
           </Link>
         </div>
+
+        {!limits.allowPublicSignup && (
+          <p className="text-sm text-muted-foreground">
+            Public signup is currently disabled. Contact the administrator for access.
+          </p>
+        )}
 
         <div className="pt-8 border-t">
           <h2 className="text-lg font-semibold mb-4">Features</h2>

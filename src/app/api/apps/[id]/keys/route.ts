@@ -3,13 +3,14 @@ import prisma from '@/lib/db';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import {
-  requireAdminUser,
   requireAuthenticatedUser,
+  requireTenantManagerUser,
 } from '@/lib/route-auth';
 import {
   createApiKeySchema,
   getValidationError,
 } from '@/lib/request-schemas';
+import { getAppAccessWhere } from '@/lib/tenant-access';
 
 type RouteParams = Promise<{ id: string }>;
 
@@ -22,13 +23,16 @@ export async function GET(
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id: appId } = await params;
 
   try {
-    // Check if app exists
-    const app = await prisma.app.findUnique({
-      where: { id: appId },
+    const app = await prisma.app.findFirst({
+      where: {
+        id: appId,
+        ...getAppAccessWhere(user),
+      },
     });
 
     if (!app) {
@@ -69,7 +73,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const authResult = await requireAdminUser();
+  const authResult = await requireTenantManagerUser();
   if ('response' in authResult) {
     return authResult.response;
   }
@@ -88,9 +92,11 @@ export async function POST(
     }
     const { name, expiresInDays } = parsed.data;
 
-    // Check if app exists
-    const app = await prisma.app.findUnique({
-      where: { id: appId },
+    const app = await prisma.app.findFirst({
+      where: {
+        id: appId,
+        ...getAppAccessWhere(user),
+      },
     });
 
     if (!app) {

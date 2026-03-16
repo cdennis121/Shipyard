@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import {
-  requireAdminUser,
   requireAuthenticatedUser,
+  requireTenantManagerUser,
 } from '@/lib/route-auth';
 import {
   getValidationError,
   updateAppSchema,
 } from '@/lib/request-schemas';
+import { getAppAccessWhere } from '@/lib/tenant-access';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -20,11 +21,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if ('response' in authResult) {
       return authResult.response;
     }
+    const { user } = authResult;
 
     const { id } = await params;
 
-    const app = await prisma.app.findUnique({
-      where: { id },
+    const app = await prisma.app.findFirst({
+      where: {
+        id,
+        ...getAppAccessWhere(user),
+      },
       include: {
         createdBy: {
           select: { username: true },
@@ -52,10 +57,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PATCH /api/apps/[id] - Update an app
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const authResult = await requireAdminUser();
+    const authResult = await requireTenantManagerUser();
     if ('response' in authResult) {
       return authResult.response;
     }
+    const { user } = authResult;
 
     const { id } = await params;
     const body = await request.json().catch(() => null);
@@ -67,6 +73,18 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       });
     }
     const { name, description, icon } = parsed.data;
+
+    const existingApp = await prisma.app.findFirst({
+      where: {
+        id,
+        ...getAppAccessWhere(user),
+      },
+      select: { id: true },
+    });
+
+    if (!existingApp) {
+      return NextResponse.json({ error: 'App not found' }, { status: 404 });
+    }
 
     const app = await prisma.app.update({
       where: { id },
@@ -92,12 +110,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/apps/[id] - Delete an app
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const authResult = await requireAdminUser();
+    const authResult = await requireTenantManagerUser();
     if ('response' in authResult) {
       return authResult.response;
     }
+    const { user } = authResult;
 
     const { id } = await params;
+
+    const existingApp = await prisma.app.findFirst({
+      where: {
+        id,
+        ...getAppAccessWhere(user),
+      },
+      select: { id: true },
+    });
+
+    if (!existingApp) {
+      return NextResponse.json({ error: 'App not found' }, { status: 404 });
+    }
 
     // Delete app (cascades to releases, files, etc.)
     await prisma.app.delete({

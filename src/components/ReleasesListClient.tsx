@@ -44,7 +44,7 @@ interface ReleaseListItem {
   stagingPercentage: number;
   isPublic: boolean;
   published: boolean;
-  createdAt: string;
+  createdAt: string | Date;
   app: {
     id: string;
     name: string;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [allowPublicSignup, setAllowPublicSignup] = useState(true);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -27,6 +29,21 @@ function LoginForm() {
       router.push('/dashboard');
     }
   }, [session, status, router]);
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const response = await fetch('/api/settings');
+        if (!response.ok) return;
+        const data = await response.json();
+        setAllowPublicSignup(data.allowPublicSignup);
+      } catch {
+        // Keep the default when settings are unavailable.
+      }
+    }
+
+    void loadSettings();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +59,11 @@ function LoginForm() {
       });
 
       if (result?.error) {
-        setError('Invalid username or password');
+        if (result.code === 'rate_limited') {
+          setError('Too many sign-in attempts. Please try again later.');
+        } else {
+          setError('Invalid username or password');
+        }
       } else if (result?.url) {
         const redirectUrl = new URL(result.url, window.location.origin);
 
@@ -114,6 +135,15 @@ function LoginForm() {
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign in'}
           </Button>
+
+          {allowPublicSignup && (
+            <p className="text-center text-sm text-muted-foreground">
+              Need an account?{' '}
+              <Link href="/signup" className="text-primary hover:underline">
+                Sign up
+              </Link>
+            </p>
+          )}
         </form>
       </CardContent>
     </Card>

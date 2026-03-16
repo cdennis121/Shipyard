@@ -40,9 +40,14 @@ interface User {
   id: string;
   username: string;
   role: string;
+  isActive: boolean;
   createdAt: Date | string;
-  _count: {
+  usage: {
+    apps: number;
+    releases: number;
     apiKeys: number;
+    appLimit: number | null;
+    releaseLimitPerApp: number | null;
   };
 }
 
@@ -59,14 +64,16 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
   const [error, setError] = useState('');
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
 
   const [formData, setFormData] = useState({
     username: '',
     password: '',
-    role: 'admin',
+    role: 'member',
   });
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
@@ -88,7 +95,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
         throw new Error(data.error || 'Failed to create user');
       }
 
-      setFormData({ username: '', password: '', role: 'admin' });
+      setFormData({ username: '', password: '', role: 'member' });
       setOpen(false);
       toast.success(`Created ${formData.username}`);
       router.refresh();
@@ -132,10 +139,49 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
     }
   };
 
+  const handleToggleUserStatus = async (user: User) => {
+    if (user.id === currentUserId) {
+      toast.error('You cannot suspend your own account');
+      return;
+    }
+
+    setUpdatingUserId(user.id);
+
+    try {
+      const response = await fetch(`/api/users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !user.isActive }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, 'Failed to update user'));
+      }
+
+      const updatedUser = await response.json();
+      setUsers((currentUsers) =>
+        currentUsers.map((currentUser) =>
+          currentUser.id === user.id
+            ? { ...currentUser, isActive: updatedUser.isActive, role: updatedUser.role }
+            : currentUser
+        )
+      );
+      toast.success(
+        `${updatedUser.isActive ? 'Reactivated' : 'Suspended'} ${user.username}`
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setUpdatingUserId(null);
+    }
+  };
+
   const normalizedSearch = deferredSearchQuery.trim().toLowerCase();
   const visibleUsers = [...users]
     .filter((user) => {
       if (roleFilter !== 'all' && user.role !== roleFilter) return false;
+      if (statusFilter === 'active' && !user.isActive) return false;
+      if (statusFilter === 'suspended' && user.isActive) return false;
       if (!normalizedSearch) return true;
 
       return [user.username, user.role]
@@ -149,9 +195,14 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
           return new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
         case 'username':
           return left.username.localeCompare(right.username, undefined, { sensitivity: 'base' });
-        case 'api-keys':
+        case 'apps':
           return (
-            right._count.apiKeys - left._count.apiKeys ||
+            right.usage.apps - left.usage.apps ||
+            left.username.localeCompare(right.username, undefined, { sensitivity: 'base' })
+          );
+        case 'releases':
+          return (
+            right.usage.releases - left.usage.releases ||
             left.username.localeCompare(right.username, undefined, { sensitivity: 'base' })
           );
         default:
@@ -159,7 +210,10 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
       }
     });
   const hasViewFilters =
-    normalizedSearch.length > 0 || roleFilter !== 'all' || sortBy !== 'recent';
+    normalizedSearch.length > 0 ||
+    roleFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    sortBy !== 'recent';
   const resultLabel =
     visibleUsers.length === users.length
       ? `${users.length} user${users.length !== 1 ? 's' : ''}`
@@ -168,8 +222,16 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
   const resetViewFilters = () => {
     setSearchQuery('');
     setRoleFilter('all');
+    setStatusFilter('all');
     setSortBy('recent');
   };
+
+  const adminUsers = users.filter((user) => user.role === 'admin').length;
+  const memberUsers = users.filter((user) => user.role === 'member').length;
+  const suspendedUsers = users.filter((user) => !user.isActive).length;
+  const accountsAtAppLimit = users.filter(
+    (user) => user.usage.appLimit !== null && user.usage.apps >= user.usage.appLimit
+  ).length;
 
   return (
     <Card>
@@ -197,7 +259,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
           <div>
             <CardTitle>All Users</CardTitle>
             <CardDescription>
-              {users.length} user{users.length !== 1 ? 's' : ''} registered
+              {users.length} account{users.length !== 1 ? 's' : ''} registered
             </CardDescription>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -207,7 +269,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Create User</DialogTitle>
-                <DialogDescription>Add a new admin user</DialogDescription>
+                <DialogDescription>Create a platform account</DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
@@ -247,6 +309,7 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="member">Member</SelectItem>
                       <SelectItem value="viewer">Viewer</SelectItem>
                     </SelectContent>
                   </Select>
@@ -265,6 +328,26 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
         </div>
       </CardHeader>
       <CardContent>
+        <div className="mb-6 grid gap-4 md:grid-cols-3">
+          <div className="rounded-lg border p-4">
+            <p className="text-sm text-muted-foreground">Admins</p>
+            <p className="mt-1 text-2xl font-semibold">{adminUsers}</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="text-sm text-muted-foreground">Members</p>
+            <p className="mt-1 text-2xl font-semibold">{memberUsers}</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="text-sm text-muted-foreground">Suspended</p>
+            <p className="mt-1 text-2xl font-semibold">{suspendedUsers}</p>
+          </div>
+        </div>
+
+        <div className="mb-6 rounded-lg border p-4">
+          <p className="text-sm text-muted-foreground">At app limit</p>
+          <p className="mt-1 text-2xl font-semibold">{accountsAtAppLimit}</p>
+        </div>
+
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end">
           <div className="flex-1 space-y-2">
             <Label htmlFor="user-search">Search users</Label>
@@ -288,7 +371,21 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
               <SelectContent>
                 <SelectItem value="all">All roles</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="member">Member</SelectItem>
                 <SelectItem value="viewer">Viewer</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2 lg:w-48">
+            <Label>Status</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="suspended">Suspended</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -302,7 +399,8 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
                 <SelectItem value="recent">Newest first</SelectItem>
                 <SelectItem value="oldest">Oldest first</SelectItem>
                 <SelectItem value="username">Username (A-Z)</SelectItem>
-                <SelectItem value="api-keys">Most API keys</SelectItem>
+                <SelectItem value="apps">Most apps</SelectItem>
+                <SelectItem value="releases">Most releases</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -344,14 +442,30 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
                       <p className="font-medium">{user.username}</p>
                       {user.id === currentUserId && <Badge variant="secondary">You</Badge>}
                     </div>
-                    <Badge variant="outline" className="mt-2">{user.role}</Badge>
+                    <div className="mt-2 flex gap-2">
+                      <Badge variant="outline">{user.role}</Badge>
+                      <Badge variant={user.isActive ? 'secondary' : 'destructive'}>
+                        {user.isActive ? 'Active' : 'Suspended'}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Apps</p>
+                    <p className="mt-1 font-medium">
+                      {user.usage.apps}
+                      {user.usage.appLimit !== null ? ` / ${user.usage.appLimit}` : ''}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Releases</p>
+                    <p className="mt-1 font-medium">{user.usage.releases}</p>
+                  </div>
+                  <div>
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">API Keys</p>
-                    <p className="mt-1 font-medium">{user._count.apiKeys}</p>
+                    <p className="mt-1 font-medium">{user.usage.apiKeys}</p>
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-wide text-muted-foreground">Created</p>
@@ -361,15 +475,30 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
                   </div>
                 </div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-4 w-full"
-                  onClick={() => requestDelete(user)}
-                  disabled={user.id === currentUserId}
-                >
-                  Delete User
-                </Button>
+                <div className="mt-4 grid gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => handleToggleUserStatus(user)}
+                    disabled={user.id === currentUserId || updatingUserId === user.id}
+                  >
+                    {updatingUserId === user.id
+                      ? 'Saving...'
+                      : user.isActive
+                        ? 'Suspend User'
+                        : 'Reactivate User'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => requestDelete(user)}
+                    disabled={user.id === currentUserId}
+                  >
+                    Delete User
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -380,6 +509,9 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
                 <TableRow>
                   <TableHead>Username</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Apps</TableHead>
+                  <TableHead>Releases</TableHead>
                   <TableHead>API Keys</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead>Actions</TableHead>
@@ -399,11 +531,29 @@ export function UsersClient({ users: initialUsers, currentUserId }: UsersClientP
                     <TableCell>
                       <Badge variant="outline">{user.role}</Badge>
                     </TableCell>
-                    <TableCell>{user._count.apiKeys}</TableCell>
+                    <TableCell>
+                      <Badge variant={user.isActive ? 'secondary' : 'destructive'}>
+                        {user.isActive ? 'Active' : 'Suspended'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {user.usage.apps}
+                      {user.usage.appLimit !== null ? ` / ${user.usage.appLimit}` : ''}
+                    </TableCell>
+                    <TableCell>{user.usage.releases}</TableCell>
+                    <TableCell>{user.usage.apiKeys}</TableCell>
                     <TableCell>
                       {new Date(user.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleToggleUserStatus(user)}
+                        disabled={user.id === currentUserId || updatingUserId === user.id}
+                      >
+                        {user.isActive ? 'Suspend' : 'Reactivate'}
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"

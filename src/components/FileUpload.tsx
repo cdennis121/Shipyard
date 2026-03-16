@@ -82,6 +82,7 @@ export function FileUpload({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          releaseId,
           filename: file.name,
           contentType: file.type || 'application/octet-stream',
           channel,

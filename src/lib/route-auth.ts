@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { User } from '@/generated/prisma';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { canManageTenant } from '@/lib/tenant-access';
 
 type RouteAuthResult =
   | { user: User }
@@ -19,15 +20,17 @@ export async function getCurrentUser(): Promise<User | null> {
       where: { id: session.user.id },
     });
 
-    if (user) {
+    if (user?.isActive) {
       return user;
     }
   }
 
   if (session.user.name) {
-    return prisma.user.findUnique({
+    const user = await prisma.user.findUnique({
       where: { username: session.user.name },
     });
+
+    return user?.isActive ? user : null;
   }
 
   return null;
@@ -56,6 +59,25 @@ export async function requireAdminUser(): Promise<RouteAuthResult> {
     return {
       response: NextResponse.json(
         { error: 'Admin access required' },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return authResult;
+}
+
+export async function requireTenantManagerUser(): Promise<RouteAuthResult> {
+  const authResult = await requireAuthenticatedUser();
+
+  if ('response' in authResult) {
+    return authResult;
+  }
+
+  if (!canManageTenant(authResult.user)) {
+    return {
+      response: NextResponse.json(
+        { error: 'Account does not have app management access' },
         { status: 403 }
       ),
     };

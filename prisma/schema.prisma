@@ -15,12 +15,34 @@ model User {
   id           String   @id @default(cuid())
   username     String   @unique
   passwordHash String
-  role         String   @default("admin") // admin, viewer
+  role         String   @default("member") // admin, member, viewer
+  isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   apiKeys ApiKey[]
   apps    App[]    @relation("AppCreatedBy")
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuthThrottle {
+  key             String   @id
+  scope           String
+  identifier      String
+  attempts        Int      @default(0)
+  windowStartedAt DateTime
+  blockedUntil    DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([scope, identifier])
+  @@index([blockedUntil])
 }
 
 // App model for multi-app support

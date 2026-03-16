@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { 
   Package, 
   Download, 
@@ -13,11 +14,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import prisma from '@/lib/db';
+import { getCurrentUser } from '@/lib/route-auth';
+import {
+  getAppAccessWhere,
+  getDownloadStatAccessWhere,
+  getReleaseAccessWhere,
+  isAdminUser,
+} from '@/lib/tenant-access';
+import { getPlatformLimits } from '@/lib/platform-settings';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
-async function getStats() {
+async function getStats(user: Awaited<ReturnType<typeof getCurrentUser>>) {
+  if (!user) {
+    redirect('/login');
+  }
+
   const [
     totalApps,
     totalReleases,
@@ -26,17 +39,25 @@ async function getStats() {
     recentDownloads,
     totalApiKeys,
   ] = await Promise.all([
-    prisma.app.count(),
-    prisma.release.count(),
-    prisma.release.count({ where: { published: true } }),
-    prisma.downloadStat.count({ where: { type: 'download' } }),
+    prisma.app.count({ where: getAppAccessWhere(user) }),
+    prisma.release.count({ where: getReleaseAccessWhere(user) }),
+    prisma.release.count({ where: { ...getReleaseAccessWhere(user), published: true } }),
     prisma.downloadStat.count({
       where: {
+        ...getDownloadStatAccessWhere(user),
+        type: 'download',
+      },
+    }),
+    prisma.downloadStat.count({
+      where: {
+        ...getDownloadStatAccessWhere(user),
         type: 'download',
         createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
       },
     }),
-    prisma.apiKey.count(),
+    prisma.apiKey.count({
+      where: isAdminUser(user) ? {} : { app: { is: { createdById: user.id } } },
+    }),
   ]);
 
   return {
@@ -49,9 +70,14 @@ async function getStats() {
   };
 }
 
-async function getRecentReleases() {
+async function getRecentReleases(user: Awaited<ReturnType<typeof getCurrentUser>>) {
+  if (!user) {
+    redirect('/login');
+  }
+
   return prisma.release.findMany({
     take: 5,
+    where: getReleaseAccessWhere(user),
     orderBy: { createdAt: 'desc' },
     include: {
       app: {
@@ -65,9 +91,12 @@ async function getRecentReleases() {
 }
 
 export default async function DashboardPage() {
-  const stats = await getStats();
-  const recentReleases = await getRecentReleases();
+  const user = await getCurrentUser();
+  const limits = await getPlatformLimits();
+  const stats = await getStats(user);
+  const recentReleases = await getRecentReleases(user);
   const draftReleases = stats.totalReleases - stats.publishedReleases;
+  const showFreePlanQuota = user && !isAdminUser(user);
   const nextSteps = [
     {
       title: stats.totalApps === 0 ? 'Create your first app' : 'Manage your apps',
@@ -109,7 +138,9 @@ export default async function DashboardPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Overview of your Shipyard update server
+            {showFreePlanQuota
+              ? 'Overview of your hosted apps and free plan usage'
+              : 'Overview of your Shipyard update server'}
           </p>
         </div>
         <Link href="/dashboard/apps">
@@ -119,6 +150,34 @@ export default async function DashboardPage() {
           </Button>
         </Link>
       </div>
+
+      {showFreePlanQuota && (
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card>
+            <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">App Quota</CardTitle>
+                <CardDescription>Free plan allowance</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {stats.totalApps} / {limits.maxAppsPerUser}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">Release Quota</CardTitle>
+              <CardDescription>Per app on the free plan</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{limits.maxReleasesPerApp}</div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Each app can host up to {limits.maxReleasesPerApp} releases.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {nextSteps.map((step) => {

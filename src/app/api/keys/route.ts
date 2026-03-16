@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuthenticatedUser } from '@/lib/route-auth';
+import { getApiKeyAccessWhere } from '@/lib/tenant-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +12,10 @@ export async function GET() {
     if ('response' in authResult) {
       return authResult.response;
     }
+    const { user } = authResult;
 
     const apiKeys = await prisma.apiKey.findMany({
+      where: getApiKeyAccessWhere(user),
       orderBy: { createdAt: 'desc' },
       include: {
         app: {
