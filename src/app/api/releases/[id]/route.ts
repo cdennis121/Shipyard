@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { deleteReleaseFiles } from '@/lib/cleanup';
 import {
-  requireAdminUser,
   requireAuthenticatedUser,
+  requireTenantManagerUser,
 } from '@/lib/route-auth';
 import {
   getValidationError,
   updateReleaseSchema,
 } from '@/lib/request-schemas';
+import { getReleaseAccessWhere } from '@/lib/tenant-access';
 
 type RouteParams = Promise<{ id: string }>;
 
@@ -21,12 +22,16 @@ export async function GET(
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id } = await params;
 
   try {
-    const release = await prisma.release.findUnique({
-      where: { id },
+    const release = await prisma.release.findFirst({
+      where: {
+        id,
+        ...getReleaseAccessWhere(user),
+      },
       include: {
         files: true,
         app: {
@@ -67,10 +72,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const authResult = await requireAdminUser();
+  const authResult = await requireTenantManagerUser();
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id } = await params;
 
@@ -95,8 +101,11 @@ export async function PATCH(
     } = parsed.data;
 
     // Check if release exists
-    const existing = await prisma.release.findUnique({
-      where: { id },
+    const existing = await prisma.release.findFirst({
+      where: {
+        id,
+        ...getReleaseAccessWhere(user),
+      },
     });
 
     if (!existing) {
@@ -163,16 +172,20 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const authResult = await requireAdminUser();
+  const authResult = await requireTenantManagerUser();
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id } = await params;
 
   try {
-    const release = await prisma.release.findUnique({
-      where: { id },
+    const release = await prisma.release.findFirst({
+      where: {
+        id,
+        ...getReleaseAccessWhere(user),
+      },
     });
 
     if (!release) {

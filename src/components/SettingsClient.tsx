@@ -1,22 +1,72 @@
 'use client';
 
 import { useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
-export function SettingsClient() {
+interface SettingsClientProps {
+  initialLimits: {
+    maxAppsPerUser: number;
+    maxReleasesPerApp: number;
+    allowPublicSignup: boolean;
+  };
+}
+
+export function SettingsClient({ initialLimits }: SettingsClientProps) {
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const [cleanupConfirmOpen, setCleanupConfirmOpen] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [limitValues, setLimitValues] = useState({
+    maxAppsPerUser: String(initialLimits.maxAppsPerUser),
+    maxReleasesPerApp: String(initialLimits.maxReleasesPerApp),
+    allowPublicSignup: initialLimits.allowPublicSignup,
+  });
   const [cleanupResult, setCleanupResult] = useState<{
     message: string;
     orphanedFiles: string[];
     deletedFiles: string[];
     errors: string[];
   } | null>(null);
+
+  const handleSaveLimits = async () => {
+    setSettingsLoading(true);
+
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          maxAppsPerUser: limitValues.maxAppsPerUser,
+          maxReleasesPerApp: limitValues.maxReleasesPerApp,
+          allowPublicSignup: limitValues.allowPublicSignup,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save platform settings');
+      }
+
+      setLimitValues({
+        maxAppsPerUser: String(data.maxAppsPerUser),
+        maxReleasesPerApp: String(data.maxReleasesPerApp),
+        allowPublicSignup: data.allowPublicSignup,
+      });
+      toast.success('Platform limits updated');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save platform settings');
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
 
   const handlePreviewCleanup = async () => {
     setCleanupLoading(true);
@@ -106,6 +156,80 @@ export function SettingsClient() {
         onConfirm={handleRunCleanup}
         isPending={cleanupLoading}
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Free Plan Limits</CardTitle>
+          <CardDescription>
+            Configure the default quotas applied to member accounts
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="maxAppsPerUser">Apps per user</Label>
+              <Input
+                id="maxAppsPerUser"
+                type="number"
+                min={1}
+                value={limitValues.maxAppsPerUser}
+                onChange={(event) =>
+                  setLimitValues((current) => ({
+                    ...current,
+                    maxAppsPerUser: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="maxReleasesPerApp">Releases per app</Label>
+              <Input
+                id="maxReleasesPerApp"
+                type="number"
+                min={1}
+                value={limitValues.maxReleasesPerApp}
+                onChange={(event) =>
+                  setLimitValues((current) => ({
+                    ...current,
+                    maxReleasesPerApp: event.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="allowPublicSignup">Public signup</Label>
+              <p className="text-xs text-muted-foreground">
+                Allow anyone to create a new hosted account from the signup page
+              </p>
+            </div>
+            <Switch
+              id="allowPublicSignup"
+              checked={limitValues.allowPublicSignup}
+              onCheckedChange={(checked) =>
+                setLimitValues((current) => ({
+                  ...current,
+                  allowPublicSignup: checked,
+                }))
+              }
+            />
+          </div>
+
+          <Alert>
+            <AlertDescription>
+              Members currently inherit these limits globally. Admin accounts remain unrestricted.
+            </AlertDescription>
+          </Alert>
+
+          <div className="flex justify-end">
+            <Button onClick={handleSaveLimits} disabled={settingsLoading}>
+              {settingsLoading ? 'Saving...' : 'Save Limits'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

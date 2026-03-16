@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { requireAdminUser } from '@/lib/route-auth';
+import { requireTenantManagerUser } from '@/lib/route-auth';
 import {
   createReleaseFileSchema,
   getValidationError,
 } from '@/lib/request-schemas';
+import { getReleaseAccessWhere } from '@/lib/tenant-access';
 
 type RouteParams = Promise<{ id: string }>;
 
@@ -13,10 +14,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: RouteParams }
 ) {
-  const authResult = await requireAdminUser();
+  const authResult = await requireTenantManagerUser();
   if ('response' in authResult) {
     return authResult.response;
   }
+  const { user } = authResult;
 
   const { id: releaseId } = await params;
 
@@ -32,8 +34,11 @@ export async function POST(
     const { filename, s3Key, sha512, size, arch } = parsed.data;
 
     // Verify release exists
-    const release = await prisma.release.findUnique({
-      where: { id: releaseId },
+    const release = await prisma.release.findFirst({
+      where: {
+        id: releaseId,
+        ...getReleaseAccessWhere(user),
+      },
     });
 
     if (!release) {

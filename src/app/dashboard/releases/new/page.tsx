@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,16 +27,21 @@ interface App {
   name: string;
   slug: string;
   icon?: string | null;
+  _count?: {
+    releases: number;
+  };
 }
 
 export default function NewReleasePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const preselectedAppId = searchParams.get('appId');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [apps, setApps] = useState<App[]>([]);
   const [loadingApps, setLoadingApps] = useState(true);
+  const [maxReleasesPerApp, setMaxReleasesPerApp] = useState(5);
   
   const [formData, setFormData] = useState({
     appId: '',
@@ -48,13 +54,21 @@ export default function NewReleasePage() {
     isPublic: true,
     published: false,
   });
+  const selectedApp = apps.find((app) => app.id === formData.appId);
+  const releaseLimitReached =
+    session?.user.role !== 'admin' &&
+    (selectedApp?._count?.releases ?? 0) >= maxReleasesPerApp;
 
   useEffect(() => {
     async function loadApps() {
       try {
-        const response = await fetch('/api/apps');
-        if (response.ok) {
-          const data = await response.json();
+        const [appsResponse, settingsResponse] = await Promise.all([
+          fetch('/api/apps'),
+          fetch('/api/settings'),
+        ]);
+
+        if (appsResponse.ok) {
+          const data = await appsResponse.json();
           setApps(data);
           const requestedApp = data.find((app: App) => app.id === preselectedAppId);
 
@@ -64,6 +78,11 @@ export default function NewReleasePage() {
             // Auto-select if only one app
             setFormData((current) => ({ ...current, appId: data[0].id }));
           }
+        }
+
+        if (settingsResponse.ok) {
+          const settings = await settingsResponse.json();
+          setMaxReleasesPerApp(settings.maxReleasesPerApp);
         }
       } catch (err) {
         console.error('Failed to load apps:', err);
@@ -137,6 +156,24 @@ export default function NewReleasePage() {
                   <Link href="/dashboard/apps" className="text-primary underline">
                     Go to Apps →
                   </Link>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {selectedApp && session?.user.role !== 'admin' && (
+              <Alert>
+                <AlertDescription>
+                  Free plan usage for {selectedApp.name}: {selectedApp._count?.releases ?? 0} /{' '}
+                  {maxReleasesPerApp} releases.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {releaseLimitReached && (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  This app has reached the free plan limit of {maxReleasesPerApp}{' '}
+                  releases.
                 </AlertDescription>
               </Alert>
             )}
@@ -297,7 +334,11 @@ export default function NewReleasePage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading} className="w-full sm:w-auto">
+              <Button
+                type="submit"
+                disabled={loading || releaseLimitReached}
+                className="w-full sm:w-auto"
+              >
                 {loading ? 'Creating...' : 'Create Release'}
               </Button>
             </div>

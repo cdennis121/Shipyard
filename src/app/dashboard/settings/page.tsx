@@ -1,12 +1,14 @@
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { SettingsClient } from '@/components/SettingsClient';
+import { getPlatformLimits } from '@/lib/platform-settings';
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
   const session = await auth();
+  const limits = await getPlatformLimits();
   
   if (session?.user.role !== 'admin') {
     redirect('/dashboard');
@@ -17,11 +19,11 @@ export default async function SettingsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
-          Server configuration and maintenance
+          Server configuration, free-plan limits, and maintenance
         </p>
       </div>
 
-      <SettingsClient />
+      <SettingsClient initialLimits={limits} />
     </div>
   );
 }

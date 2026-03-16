@@ -6,6 +6,7 @@ import {
   createUserSchema,
   getValidationError,
 } from '@/lib/request-schemas';
+import { getPlatformLimits } from '@/lib/platform-settings';
 
 // GET - List all users
 export async function GET() {
@@ -15,20 +16,57 @@ export async function GET() {
   }
 
   try {
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        username: true,
-        role: true,
-        createdAt: true,
-        _count: {
-          select: { apiKeys: true },
+    const limits = await getPlatformLimits();
+    const [users, appReleaseCounts] = await Promise.all([
+      prisma.user.findMany({
+        select: {
+          id: true,
+          username: true,
+          role: true,
+          isActive: true,
+          createdAt: true,
+          _count: {
+            select: {
+              apps: true,
+              apiKeys: true,
+            },
+          },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.app.findMany({
+        select: {
+          createdById: true,
+          _count: {
+            select: {
+              releases: true,
+            },
+          },
+        },
+      }),
+    ]);
 
-    return NextResponse.json(users);
+    const releaseTotalsByUser = appReleaseCounts.reduce<Record<string, number>>(
+      (totals, app) => {
+        totals[app.createdById] = (totals[app.createdById] ?? 0) + app._count.releases;
+        return totals;
+      },
+      {}
+    );
+
+    const hydratedUsers = users.map((user) => ({
+      ...user,
+      usage: {
+        apps: user._count.apps,
+        releases: releaseTotalsByUser[user.id] ?? 0,
+        apiKeys: user._count.apiKeys,
+        appLimit: user.role === 'admin' ? null : limits.maxAppsPerUser,
+        releaseLimitPerApp:
+          user.role === 'admin' ? null : limits.maxReleasesPerApp,
+      },
+    }));
+
+    return NextResponse.json(hydratedUsers);
   } catch (error) {
     console.error('Error fetching users:', error);
     return NextResponse.json(
@@ -80,6 +118,7 @@ export async function POST(request: NextRequest) {
         id: true,
         username: true,
         role: true,
+        isActive: true,
         createdAt: true,
       },
     });

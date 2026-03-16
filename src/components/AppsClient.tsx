@@ -63,7 +63,12 @@ interface App {
   };
 }
 
-export function AppsClient() {
+interface AppsClientProps {
+  currentUserRole: string;
+  maxAppsPerUser: number;
+}
+
+export function AppsClient({ currentUserRole, maxAppsPerUser }: AppsClientProps) {
   const [apps, setApps] = useState<App[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -268,6 +273,8 @@ export function AppsClient() {
       }
     });
   const hasViewFilters = normalizedSearch.length > 0 || sortBy !== 'recent';
+  const isAppCreationDisabled =
+    currentUserRole !== 'admin' && apps.length >= maxAppsPerUser;
   const resultLabel =
     visibleApps.length === apps.length
       ? `${apps.length} app${apps.length !== 1 ? 's' : ''}`
@@ -292,7 +299,9 @@ export function AppsClient() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Apps</h1>
           <p className="text-muted-foreground">
-            Manage your Electron applications
+            {currentUserRole === 'admin'
+              ? 'Manage all hosted Electron applications'
+              : `Manage your Electron applications. Free accounts can host up to ${maxAppsPerUser} app${maxAppsPerUser === 1 ? '' : 's'}.`}
           </p>
         </div>
         <Dialog 
@@ -303,7 +312,7 @@ export function AppsClient() {
           }}
         >
           <DialogTrigger asChild>
-            <Button className="gap-2">
+            <Button className="gap-2" disabled={isAppCreationDisabled}>
               <Plus className="h-4 w-4" />
               New App
             </Button>
@@ -362,13 +371,21 @@ export function AppsClient() {
               <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleCreate} disabled={saving}>
+              <Button onClick={handleCreate} disabled={saving || isAppCreationDisabled}>
                 {saving ? 'Creating...' : 'Create App'}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
+
+      {isAppCreationDisabled && (
+        <Alert>
+            <AlertDescription>
+            Free plan limit reached. You can host up to {maxAppsPerUser} app{maxAppsPerUser === 1 ? '' : 's'} per account.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Edit Dialog */}
       <Dialog 
@@ -515,7 +532,11 @@ export function AppsClient() {
             <p className="text-muted-foreground max-w-sm mt-1">
               Create your first app to start managing Electron updates.
             </p>
-            <Button className="mt-4 gap-2" onClick={() => setCreateDialogOpen(true)}>
+            <Button
+              className="mt-4 gap-2"
+              onClick={() => setCreateDialogOpen(true)}
+              disabled={isAppCreationDisabled}
+            >
               <Plus className="h-4 w-4" />
               Create Your First App
             </Button>
